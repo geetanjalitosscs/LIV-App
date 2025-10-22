@@ -89,6 +89,8 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
         ],
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -263,32 +265,6 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: CustomBottomNavigation(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          // Handle navigation based on index
-          switch (index) {
-            case 0: // Home
-              Navigator.of(context).pop();
-              break;
-            case 1: // Friends
-              // Navigate to friends screen
-              break;
-            case 2: // Messages
-              // Navigate to messages screen
-              break;
-            case 3: // Discover
-              // Navigate to discover screen
-              break;
-            case 4: // Profile
-              // Already on profile/avatar screen
-              break;
-          }
-        },
       ),
     );
   }

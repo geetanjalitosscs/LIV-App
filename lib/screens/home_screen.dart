@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
     
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
+      appBar: _currentIndex == 4 ? null : AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(

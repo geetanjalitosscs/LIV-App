@@ -134,30 +134,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo (Front Camera)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromCamera(true);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera),
-                title: const Text('Take Photo (Rear Camera)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _pickImageFromCamera(false);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.auto_fix_high),
-                title: const Text('Generate Avatar (AI)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _navigateToAvatarGeneration();
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.person_outline),
                 title: const Text('Create 3D Avatar'),
                 onTap: () {
@@ -292,11 +268,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
+            ),
+          ),
+        ),
         title: const Text(
           'Profile',
-          style: TextStyle(color: Colors.white), // Keep white in AppBar
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
-        backgroundColor: const Color(0xFF667eea),
         foregroundColor: Colors.white,
       ),
       body: Focus(
@@ -458,81 +444,37 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 const SizedBox(height: 24),
 
                 // Action Buttons
-                Column(
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => const AvatarSetupScreen()),
-                              );
-                            },
-                            icon: const Icon(Icons.edit),
-                            label: const Text('Edit Profile'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFed4273),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const AvatarSetupScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.edit),
+                        label: const Text('Edit Profile'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFed4273),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Message feature coming soon!'),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.message),
-                            label: const Text('Message'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Theme.of(context).brightness == Brightness.light
-                                  ? Colors.grey[200]
-                                  : const Color(0xFF2C2C2C),
-                              foregroundColor: Theme.of(context).brightness == Brightness.light
-                                  ? Colors.black87
-                                  : Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _showImageSourceDialog,
-                            icon: const Icon(Icons.camera_alt),
-                            label: const Text('Change Photo'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _navigateToReadyPlayerMe,
+                        icon: const Icon(Icons.person_outline),
+                        label: const Text('Avatar Manager'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _navigateToReadyPlayerMe,
-                            icon: const Icon(Icons.person_outline),
-                            label: const Text('Avatar Manager'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.purple,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
