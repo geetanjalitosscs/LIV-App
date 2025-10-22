@@ -1,0 +1,35 @@
+{
+    "name": "LIV - Friendship Platform",
+    "short_name": "LIV",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#ed4273",
+    "theme_color": "#ed4273",
+    "description": "Connect with friends and build meaningful friendships",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

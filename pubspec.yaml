@@ -1,0 +1,57 @@
+name: flutter_liv
+description: LIV - Connect with friends and build meaningful friendships
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI and animations
+  cupertino_icons: ^1.0.2
+  flutter_animate: ^4.5.0
+  lottie: ^2.7.0
+  google_fonts: ^6.2.1
+
+  # State management
+  provider: ^6.1.1
+
+  # Utilities
+  shared_preferences: ^2.2.2
+
+  # ✅ Device + media
+  image_picker: ^1.0.7
+  permission_handler: ^11.3.1
+
+  # ✅ Health
+  health: ^10.2.0
+
+  # HTTP and encoding
+  http: ^1.5.0
+  convert: ^3.1.1
+
+  # Web-specific dependencies for Three.js
+  js: ^0.6.7
+
+  # Avatar generation dependencies
+  webview_flutter: ^4.4.2
+  webview_windows: ^0.4.0
+  url_launcher: ^6.2.2
+  path_provider: ^2.1.1
+
+  # Firebase removed
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/animations/
+    - assets/avatars/

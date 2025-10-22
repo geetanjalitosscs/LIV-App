@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Avatar Maker</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 3D Avatar Maker</h1>
+            <p>Create your unique 3D avatar with custom features and colors</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="canvas-container">
+                <div id="threejs-container"></div>
+                <div class="canvas-controls">
+                    <button id="downloadBtn" class="btn btn-primary">💾 Download Avatar</button>
+                    <button id="resetCameraBtn" class="btn btn-secondary">📷 Reset Camera</button>
+                    <button id="rotateBtn" class="btn btn-secondary">🔄 Auto Rotate</button>
+                </div>
+            </div>
+            
+            <div class="controls-panel">
+                 <div class="control-section">
+                     <h3>👤 Face Shape</h3>
+                     <div class="option-group">
+                         <button class="option-btn" data-feature="face" data-value="round">Round</button>
+                         <button class="option-btn" data-feature="face" data-value="oval">Oval</button>
+                         <button class="option-btn" data-feature="face" data-value="square">Square</button>
+                         <button class="option-btn" data-feature="face" data-value="heart">Heart</button>
+                         <button class="option-btn" data-feature="face" data-value="diamond">Diamond</button>
+                     </div>
+                 </div>
+                
+                <div class="control-section">
+                    <h3>🎨 Skin Color</h3>
+                    <input type="color" id="skinColor" value="#fdbcb4" class="color-picker">
+                </div>
+                
+                <div class="control-section">
+                    <h3>👁️ Eyes</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="eyes" data-value="normal">Normal</button>
+                        <button class="option-btn" data-feature="eyes" data-value="big">Big</button>
+                        <button class="option-btn" data-feature="eyes" data-value="small">Small</button>
+                    </div>
+                    <input type="color" id="eyeColor" value="#4a4a4a" class="color-picker">
+                </div>
+                
+                <div class="control-section">
+                    <h3>👃 Nose</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="nose" data-value="normal">Normal</button>
+                        <button class="option-btn" data-feature="nose" data-value="small">Small</button>
+                        <button class="option-btn" data-feature="nose" data-value="big">Big</button>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h3>👄 Mouth</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="mouth" data-value="smile">Smile</button>
+                        <button class="option-btn" data-feature="mouth" data-value="neutral">Neutral</button>
+                        <button class="option-btn" data-feature="mouth" data-value="big-smile">Big Smile</button>
+                    </div>
+                </div>
+                
+                 <div class="control-section">
+                     <h3>💇 Hair Style</h3>
+                     <div class="option-group">
+                         <button class="option-btn" data-feature="hair" data-value="short">Short</button>
+                         <button class="option-btn" data-feature="hair" data-value="medium">Medium</button>
+                         <button class="option-btn" data-feature="hair" data-value="long">Long</button>
+                         <button class="option-btn" data-feature="hair" data-value="curly">Curly</button>
+                         <button class="option-btn" data-feature="hair" data-value="wavy">Wavy</button>
+                         <button class="option-btn" data-feature="hair" data-value="braids">Braids</button>
+                         <button class="option-btn" data-feature="hair" data-value="ponytail">Ponytail</button>
+                         <button class="option-btn" data-feature="hair" data-value="buzz">Buzz Cut</button>
+                         <button class="option-btn" data-feature="hair" data-value="bald">Bald</button>
+                     </div>
+                     <input type="color" id="hairColor" value="#8b4513" class="color-picker">
+                 </div>
+                
+                <div class="control-section">
+                    <h3>👔 Accessories</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="accessories" data-value="none">None</button>
+                        <button class="option-btn" data-feature="accessories" data-value="glasses">Glasses</button>
+                        <button class="option-btn" data-feature="accessories" data-value="hat">Hat</button>
+                        <button class="option-btn" data-feature="accessories" data-value="beard">Beard</button>
+                    </div>
+                </div>
+                
+                 <div class="control-section">
+                     <h3>🏃 Body Type</h3>
+                     <div class="option-group">
+                         <button class="option-btn" data-feature="bodyType" data-value="average">Average</button>
+                         <button class="option-btn" data-feature="bodyType" data-value="slim">Slim</button>
+                         <button class="option-btn" data-feature="bodyType" data-value="athletic">Athletic</button>
+                         <button class="option-btn" data-feature="bodyType" data-value="muscular">Muscular</button>
+                         <button class="option-btn" data-feature="bodyType" data-value="curvy">Curvy</button>
+                     </div>
+                 </div>
+                
+                <div class="control-section">
+                    <h3>👕 Top Clothing</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="top" data-value="t-shirt">T-Shirt</button>
+                        <button class="option-btn" data-feature="top" data-value="shirt">Shirt</button>
+                        <button class="option-btn" data-feature="top" data-value="dress">Dress</button>
+                        <button class="option-btn" data-feature="top" data-value="hoodie">Hoodie</button>
+                        <button class="option-btn" data-feature="top" data-value="tank-top">Tank Top</button>
+                    </div>
+                    <input type="color" id="topColor" value="#3498db" class="color-picker">
+                </div>
+                
+                <div class="control-section">
+                    <h3>👖 Bottom Clothing</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="bottom" data-value="jeans">Jeans</button>
+                        <button class="option-btn" data-feature="bottom" data-value="shorts">Shorts</button>
+                        <button class="option-btn" data-feature="bottom" data-value="skirt">Skirt</button>
+                        <button class="option-btn" data-feature="bottom" data-value="pants">Pants</button>
+                        <button class="option-btn" data-feature="bottom" data-value="leggings">Leggings</button>
+                    </div>
+                    <input type="color" id="bottomColor" value="#2c3e50" class="color-picker">
+                </div>
+                
+                <div class="control-section">
+                    <h3>👟 Shoes</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="shoes" data-value="sneakers">Sneakers</button>
+                        <button class="option-btn" data-feature="shoes" data-value="boots">Boots</button>
+                        <button class="option-btn" data-feature="shoes" data-value="sandals">Sandals</button>
+                        <button class="option-btn" data-feature="shoes" data-value="heels">Heels</button>
+                        <button class="option-btn" data-feature="shoes" data-value="barefoot">Barefoot</button>
+                    </div>
+                    <input type="color" id="shoeColor" value="#34495e" class="color-picker">
+                </div>
+                
+                <div class="control-section">
+                    <h3>🤲 Pose</h3>
+                    <div class="option-group">
+                        <button class="option-btn" data-feature="pose" data-value="standing">Standing</button>
+                        <button class="option-btn" data-feature="pose" data-value="arms-crossed">Arms Crossed</button>
+                        <button class="option-btn" data-feature="pose" data-value="wave">Wave</button>
+                        <button class="option-btn" data-feature="pose" data-value="thumbs-up">Thumbs Up</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
