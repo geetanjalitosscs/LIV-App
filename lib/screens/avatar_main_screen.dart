@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../avatar_features/Avatar_Creator_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
+import '../services/avatar_service.dart';
 
 class AvatarMainScreen extends StatefulWidget {
   const AvatarMainScreen({super.key});
@@ -27,6 +28,16 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAllAvatars();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh avatar when returning to this screen
+    setState(() {
+      _avatarFuture = _loadSavedAvatar();
+    });
+    _loadAllAvatars();
   }
 
   @override
@@ -67,12 +78,6 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                 _avatarFuture = _loadSavedAvatar();
               });
               await _loadAllAvatars();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.brightness_6, color: Colors.white),
-            onPressed: () {
-              // Dark mode toggle functionality
             },
           ),
           IconButton(
@@ -123,14 +128,20 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                             return MouseRegion(
                               cursor: hasValidAvatar ? SystemMouseCursors.click : SystemMouseCursors.basic,
                               child: GestureDetector(
-                                onTap: () {
+                                onTap: () async {
                                   if (hasValidAvatar) {
-                                    Navigator.push(
+                                    final result = await Navigator.push<bool>(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => FullScreenAvatarView(imagePath: pngPath!),
                                       ),
                                     );
+                                    if (result == true) {
+                                      // Refresh the avatar data
+                                      setState(() {
+                                        _avatarFuture = _loadSavedAvatar();
+                                      });
+                                    }
                                   }
                                 },
                                 child: Container(
@@ -410,6 +421,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                 child: SizedBox(
                   height: 120,
                   child: Scrollbar(
+                    controller: _scrollController,
                     thumbVisibility: true,
                     trackVisibility: true,
                     thickness: 8,
@@ -427,13 +439,20 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                           child: Column(
                             children: [
                               GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  final result = await Navigator.push<bool>(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => FullScreenAvatarView(imagePath: avatar['png']!),
                                     ),
                                   );
+                                  if (result == true) {
+                                    // Refresh the avatar data
+                                    setState(() {
+                                      _avatarFuture = _loadSavedAvatar();
+                                    });
+                                    await _loadAllAvatars(); // Also refresh the gallery
+                                  }
                                 },
                                 child: Container(
                                   width: 80,
@@ -458,7 +477,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Avatar ${index + 1}',
+                                'Avatar ${_allAvatars.length - index}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.white.withOpacity(0.75),
@@ -497,49 +516,15 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
   }
 }
 
-Future<Map<String, String?>> _loadSavedAvatar() async {
-  try {
-    // Scan the uploads folder for the most recent avatar
-    final windowsUploads = r'C:\xampp\htdocs\Liv-App\Uploads';
-    final uploadsDir = Directory(windowsUploads);
-    
-    if (!uploadsDir.existsSync()) {
-      print('Uploads directory does not exist');
+  Future<Map<String, String?>> _loadSavedAvatar() async {
+    try {
+      // Use AvatarService which properly checks SharedPreferences first
+      return await AvatarService.loadSavedAvatar();
+    } catch (e) {
+      print('Error in _loadSavedAvatar: $e');
       return {'id': null, 'glb': null, 'png': null};
     }
-    
-    // Get all PNG files and find the most recent one
-    final pngFiles = uploadsDir
-        .listSync()
-        .where((file) => file.path.toLowerCase().endsWith('.png'))
-        .cast<File>()
-        .toList();
-    
-    if (pngFiles.isEmpty) {
-      print('No PNG files found in uploads folder');
-      return {'id': null, 'glb': null, 'png': null};
-    }
-    
-    // Sort by modification time (most recent first)
-    pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
-    final latestPng = pngFiles.first;
-    
-    // Extract avatar ID from filename
-    final fileName = latestPng.path.split('\\').last;
-    final avatarId = fileName.replaceAll('.png', '');
-    final glbPath = '$windowsUploads\\$avatarId.glb';
-    
-    print('Found latest avatar: $avatarId');
-    return {
-      'id': avatarId,
-      'glb': File(glbPath).existsSync() ? glbPath : null,
-      'png': latestPng.path,
-    };
-  } catch (e) {
-    print('Error in _loadSavedAvatar: $e');
-    return {'id': null, 'glb': null, 'png': null};
   }
-}
 
 class FullScreenAvatarView extends StatelessWidget {
   final String imagePath;
@@ -549,17 +534,116 @@ class FullScreenAvatarView extends StatelessWidget {
     required this.imagePath,
   }) : super(key: key);
 
+  Future<void> _saveAsProfileAvatar(BuildContext context) async {
+    try {
+      // Extract avatar ID from the image path
+      final fileName = imagePath.split('\\').last;
+      final avatarId = fileName.replaceAll('.png', '');
+      
+      print('Setting avatar as profile: $avatarId');
+      print('Avatar path: $imagePath');
+      
+      // Update SharedPreferences to set this as the current profile avatar
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lastAvatarId', avatarId);
+      await prefs.setString('lastAvatarPngPath', imagePath);
+      
+      // Also update the GLB path if it exists
+      final glbPath = imagePath.replaceAll('.png', '.glb');
+      if (File(glbPath).existsSync()) {
+        await prefs.setString('lastAvatarGlbPath', glbPath);
+        print('GLB path also updated: $glbPath');
+      }
+      
+      // Force a refresh by clearing any cached data
+      await prefs.remove('cachedAvatarData');
+      
+      print('Profile avatar updated successfully');
+      
+      // Show success message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Avatar set as profile photo successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to avatar screen with success flag
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      print('Error setting avatar as profile: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to set avatar as profile photo: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text(
           'Avatar View',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.1),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => _saveAsProfileAvatar(context),
+              child: const Text(
+                'Save Avatar',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Center(
         child: InteractiveViewer(

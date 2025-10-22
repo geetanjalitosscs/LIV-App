@@ -44,6 +44,13 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
                 });
                 _injectJavaScript();
               },
+              onWebResourceError: (WebResourceError error) {
+                print('WebView error: ${error.description}');
+                setState(() {
+                  _isLoading = false;
+                });
+                _showConnectionError();
+              },
             ),
           );
         
@@ -66,6 +73,13 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
                 });
                 _injectJavaScript();
               },
+              onWebResourceError: (WebResourceError error) {
+                print('WebView error: ${error.description}');
+                setState(() {
+                  _isLoading = false;
+                });
+                _showConnectionError();
+              },
             ),
           );
         
@@ -79,6 +93,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
       setState(() {
         _isLoading = false;
       });
+      _showConnectionError();
     }
   }
 
@@ -101,6 +116,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
       setState(() {
         _isLoading = false;
       });
+      _showConnectionError();
     }
   }
 
@@ -240,20 +256,132 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
     }
   }
 
+  void _showConnectionError() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.wifi_off, color: Colors.red, size: 28),
+              SizedBox(width: 12),
+              Text(
+                'Connection Error',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Connection is weak or the avatar service is temporarily unavailable.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Please check your internet connection and try again.',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Return to avatar screen
+              },
+              child: Text(
+                'Return to Avatar Screen',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF42A5F5),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                _initializeWebView(); // Retry
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF42A5F5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                'Retry',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Avatar'),
-        backgroundColor: const Color(0xFF42A5F5),
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton(
-            onPressed: _exportAvatar,
-            child: const Text(
-              'Export',
-              style: TextStyle(color: Colors.white),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
             ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Create Avatar',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () {
+              // Refresh functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.brightness_6, color: Colors.white),
+            onPressed: () {
+              // Dark mode toggle functionality
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.save, color: Colors.white),
+            onPressed: _exportAvatar,
+            tooltip: 'Save Avatar',
           ),
         ],
       ),

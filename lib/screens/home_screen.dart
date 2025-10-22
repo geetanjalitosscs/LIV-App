@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/theme_service.dart';
+import '../services/avatar_service.dart';
 import '../widgets/bottom_navigation.dart';
 import 'coach_screen.dart';
 import 'feed_screen.dart';
@@ -18,32 +20,23 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  late AnimationController _backgroundController;
-  late Animation<double> _backgroundOpacity;
   
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
-    _backgroundOpacity = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _backgroundController,
-      curve: Curves.easeInOut,
-    ));
-    _backgroundController.forward();
+    // Refresh avatar when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {});
+    });
   }
-  
+
   @override
-  void dispose() {
-    _backgroundController.dispose();
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh avatar when returning to this screen
+    setState(() {});
   }
   
   @override
@@ -70,21 +63,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         title: Row(
           children: [
-            Consumer<UserService>(
-              builder: (context, userService, child) {
-                return Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundImage: AssetImage(userService.currentAvatar),
-                    onBackgroundImageError: (exception, stackTrace) {
-                      // Handle error if needed
+            FutureBuilder<String?>(
+              future: AvatarService.getAvatarImagePath(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundImage: FileImage(File(snapshot.data!)),
+                      onBackgroundImageError: (exception, stackTrace) {
+                        // Handle error if needed
+                      },
+                    ),
+                  );
+                } else {
+                  // Fallback to default avatar
+                  return Consumer<UserService>(
+                    builder: (context, userService, child) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundImage: AssetImage(userService.currentAvatar),
+                          onBackgroundImageError: (exception, stackTrace) {
+                            // Handle error if needed
+                          },
+                        ),
+                      );
                     },
-                  ),
-                );
+                  );
+                }
               },
             ),
             const SizedBox(width: 12),
@@ -103,19 +118,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         actions: [
-          Consumer<ThemeService>(
-            builder: (context, themeService, child) {
-              return IconButton(
-                icon: Icon(
-                  themeService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  themeService.toggleTheme();
-                },
-              );
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
@@ -124,28 +126,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-      body: AnimatedBuilder(
-        animation: _backgroundOpacity,
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFFF8BBD9).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFE1BEE7).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFC5CAE9).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFB39DDB).withOpacity(_backgroundOpacity.value),
-                ],
-                stops: const [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
-            child: SafeArea(
-              child: _buildBody(),
-            ),
-          );
-        },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF8BBD9),
+              Color(0xFFE1BEE7),
+              Color(0xFFC5CAE9),
+              Color(0xFFB39DDB),
+            ],
+            stops: [0.0, 0.3, 0.7, 1.0],
+          ),
+        ),
+        child: SafeArea(
+          child: _buildBody(),
+        ),
       ),
       bottomNavigationBar: CustomBottomNavigation(
         currentIndex: _currentIndex,

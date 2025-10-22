@@ -17,6 +17,22 @@ class AvatarService {
   /// Load saved avatar from local storage
   static Future<Map<String, String?>> loadSavedAvatar() async {
     try {
+      // First check SharedPreferences for the selected profile avatar
+      final prefs = await SharedPreferences.getInstance();
+      final selectedAvatarId = prefs.getString('lastAvatarId');
+      final selectedPngPath = prefs.getString('lastAvatarPngPath');
+      final selectedGlbPath = prefs.getString('lastAvatarGlbPath');
+      
+      if (selectedAvatarId != null && selectedPngPath != null && File(selectedPngPath).existsSync()) {
+        print('Using selected profile avatar: $selectedAvatarId');
+        return {
+          'id': selectedAvatarId,
+          'glb': selectedGlbPath != null && File(selectedGlbPath).existsSync() ? selectedGlbPath : null,
+          'png': selectedPngPath,
+        };
+      }
+      
+      // Fallback: Get all PNG files and find the most recent one
       final uploadsDir = Directory(_uploadsPath);
       
       if (!uploadsDir.existsSync()) {

@@ -48,7 +48,7 @@ Future<void> _showErrorDialog(BuildContext context) async {
           ],
         ),
         content: const Text(
-          'Please click Save before selecting Next. Your avatar won\'t be saved otherwise.',
+          'Please click Save before selecting Next. Your avatar won\'t be saved otherwise. Go back and come again.',
           style: TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -430,32 +430,119 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
   @override
   Widget build(BuildContext context) {
     final actions = <Widget>[
-      TextButton(
-        onPressed: () async {
+        Container(
+          margin: const EdgeInsets.only(right: 16),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.3),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextButton(
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          onPressed: () async {
           // Direct approach: Request export and save without requiring NEXT button
           _exportCompleter = Completer<String>();
           try {
             const js = '''
-              // Request avatar export directly
-              window.postMessage({source:'readyplayerme', eventName:'v1.frame.requestAvatarExport'}, '*');
+              // Direct avatar export - no need for NEXT button
+              console.log('Attempting direct avatar export...');
               
-              // Also try to find and click NEXT button if available
-              setTimeout(() => {
-                const nextButtons = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
-                const nextBtn = nextButtons.find(b => 
-                  b && b.innerText && b.innerText.trim().toUpperCase() === 'NEXT'
-                );
-                if (nextBtn) {
-                  nextBtn.style.display = 'block';
-                  nextBtn.style.visibility = 'visible';
-                  nextBtn.style.opacity = '1';
-                  nextBtn.disabled = false;
-                  nextBtn.removeAttribute('disabled');
-                  nextBtn.style.pointerEvents = 'auto';
-                  nextBtn.classList.remove('hidden', 'invisible', 'disabled');
-                  nextBtn.click();
+              // Method 1: Try direct export request
+              try {
+                window.postMessage({source:'readyplayerme', eventName:'v1.frame.requestAvatarExport'}, '*');
+                console.log('Direct export request sent');
+              } catch (e) {
+                console.log('Direct export failed:', e);
+              }
+              
+              // Method 2: Look for existing avatar URL in the page
+              const findAvatarUrl = () => {
+                // Check for avatar URLs in various places
+                const urlInputs = document.querySelectorAll('input[type="text"], input[readonly], textarea');
+                for (let input of urlInputs) {
+                  if (input.value && input.value.includes('.glb')) {
+                    console.log('Found avatar URL:', input.value);
+                    return input.value;
+                  }
                 }
-              }, 1000);
+                
+                // Check for URLs in data attributes
+                const elements = document.querySelectorAll('[data-url], [data-avatar-url], [data-model-url]');
+                for (let el of elements) {
+                  const url = el.getAttribute('data-url') || el.getAttribute('data-avatar-url') || el.getAttribute('data-model-url');
+                  if (url && url.includes('.glb')) {
+                    console.log('Found avatar URL in data attribute:', url);
+                    return url;
+                  }
+                }
+                
+                return null;
+              };
+              
+              // Try to find avatar URL immediately
+              const avatarUrl = findAvatarUrl();
+              if (avatarUrl) {
+                console.log('Avatar URL found immediately:', avatarUrl);
+                // Send URL to Flutter
+                if (window.chrome && window.chrome.webview) {
+                  window.chrome.webview.postMessage(avatarUrl);
+                } else if (window.AvatarChannel) {
+                  window.AvatarChannel.postMessage(avatarUrl);
+                }
+              } else {
+                console.log('No avatar URL found, waiting for export...');
+                // Set up observer to watch for URL changes
+                const observer = new MutationObserver(() => {
+                  const url = findAvatarUrl();
+                  if (url) {
+                    console.log('Avatar URL found via observer:', url);
+                    observer.disconnect();
+                    // Send URL to Flutter
+                    if (window.chrome && window.chrome.webview) {
+                      window.chrome.webview.postMessage(url);
+                    } else if (window.AvatarChannel) {
+                      window.AvatarChannel.postMessage(url);
+                    }
+                  }
+                });
+                observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+                
+                // Also try clicking NEXT button as fallback
+                setTimeout(() => {
+                  const nextButtons = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+                  const nextBtn = nextButtons.find(b => 
+                    b && b.innerText && b.innerText.trim().toUpperCase() === 'NEXT'
+                  );
+                  if (nextBtn) {
+                    console.log('Clicking NEXT button as fallback');
+                    nextBtn.style.display = 'block';
+                    nextBtn.style.visibility = 'visible';
+                    nextBtn.style.opacity = '1';
+                    nextBtn.disabled = false;
+                    nextBtn.removeAttribute('disabled');
+                    nextBtn.style.pointerEvents = 'auto';
+                    nextBtn.classList.remove('hidden', 'invisible', 'disabled');
+                    nextBtn.click();
+                  }
+                }, 2000);
+              }
               
               // Watch for avatar export events and URL
               let urlFound = false;
@@ -609,20 +696,69 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
             });
           }
         },
-        child: const Text('Save'),
+        child: const Text(
+          'Save',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
       ),
     ];
 
     if (!kIsWeb && Platform.isWindows) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Create Avatar"), actions: actions),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          flexibleSpace: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
+              ),
+            ),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: const Text(
+            'Create Avatar',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+          actions: actions,
+        ),
         body: _windowsController == null
             ? const Center(child: CircularProgressIndicator())
             : winwv.Webview(_windowsController!),
       );
     }
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Avatar"), actions: actions),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
+            ),
+          ),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'Create Avatar',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        actions: actions,
+      ),
       body: WebViewWidget(controller: controller),
     );
   }

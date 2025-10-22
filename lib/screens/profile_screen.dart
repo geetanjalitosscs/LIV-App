@@ -19,7 +19,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver, RouteAware {
   Uint8List? _selectedImageBytes;
   Uint8List? _generatedAvatarBytes;
   bool _isGenerating = false;
@@ -29,14 +29,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadReadyPlayerMeAvatar();
+    
+    // Add post-frame callback to ensure refresh after screen is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadReadyPlayerMeAvatar();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Refresh avatar when app becomes active
+      _loadReadyPlayerMeAvatar();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh avatar when returning to this screen
     _loadReadyPlayerMeAvatar();
   }
 
+  @override
+  void didPopNext() {
+    // Called when returning to this screen from another screen
+    print('Profile screen: didPopNext - refreshing avatar');
+    _loadReadyPlayerMeAvatar();
+  }
+
+  @override
+  void didPushNext() {
+    // Called when navigating away from this screen
+    print('Profile screen: didPushNext');
+  }
+
   Future<void> _loadReadyPlayerMeAvatar() async {
-    final avatarPath = await AvatarService.getAvatarImagePath();
-    if (avatarPath != null && File(avatarPath).existsSync()) {
+    try {
+      print('Profile screen: Starting avatar refresh...');
+      final avatarPath = await AvatarService.getAvatarImagePath();
+      print('Profile screen loading avatar: $avatarPath');
+      
+      if (avatarPath != null && File(avatarPath).existsSync()) {
+        setState(() {
+          _readyPlayerMeAvatarPath = avatarPath;
+        });
+        print('Profile screen avatar updated successfully: $avatarPath');
+      } else {
+        setState(() {
+          _readyPlayerMeAvatarPath = null;
+        });
+        print('No valid avatar found for profile screen');
+      }
+      
+      // Force a rebuild to ensure UI updates
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error loading avatar in profile screen: $e');
       setState(() {
-        _readyPlayerMeAvatarPath = avatarPath;
+        _readyPlayerMeAvatarPath = null;
       });
     }
   }
@@ -176,6 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // Navigate to comprehensive avatar management screen
   Future<void> _navigateToReadyPlayerMe() async {
+    print('Profile screen: Navigating to AvatarMainScreen');
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -183,14 +246,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     
+    print('Profile screen: Returned from AvatarMainScreen with result: $result');
     if (result == true) {
       // Reload the Ready Player Me avatar
+      print('Profile screen: Avatar was updated, refreshing...');
       await _loadReadyPlayerMeAvatar();
       setState(() {
         _generatedAvatarBytes = null; // Clear AI generated avatar
         _selectedImageBytes = null; // Clear selected image
       });
       _showSuccessSnackBar('3D Avatar updated successfully!');
+    } else {
+      // Even if result is false, refresh to ensure consistency
+      print('Profile screen: No avatar update, but refreshing anyway...');
+      await _loadReadyPlayerMeAvatar();
     }
   }
 
@@ -230,43 +299,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFF667eea),
         foregroundColor: Colors.white,
       ),
-      body: Consumer<UserService>(
-        builder: (context, userService, child) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              children: [
-                // Profile Header
-                GestureDetector(
-                  onTap: _showImageSourceDialog,
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 60,
-                        backgroundImage: _getProfileImage(userService),
-                        onBackgroundImageError: (exception, stackTrace) {
-                          // Handle error if needed
-                        },
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.camera_alt,
-                            color: Color(0xFFed4273),
-                            size: 20,
+      body: Focus(
+        onFocusChange: (hasFocus) {
+          if (hasFocus) {
+            // Refresh avatar when screen regains focus
+            print('Profile screen: Focus gained - refreshing avatar');
+            _loadReadyPlayerMeAvatar();
+          }
+        },
+        child: Consumer<UserService>(
+          builder: (context, userService, child) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  // Profile Header
+                  GestureDetector(
+                    onTap: () async {
+                      // Refresh avatar before showing dialog
+                      await _loadReadyPlayerMeAvatar();
+                      _showImageSourceDialog();
+                    },
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundImage: _getProfileImage(userService),
+                          onBackgroundImageError: (exception, stackTrace) {
+                            // Handle error if needed
+                            print('Profile image error: $exception');
+                          },
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Color(0xFFed4273),
+                              size: 20,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 const SizedBox(height: 16),
                 
                 // Loading indicator for avatar generation
@@ -454,10 +536,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-              ],
-            ),
-          );
-        },
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
