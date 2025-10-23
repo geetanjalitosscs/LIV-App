@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(color: LivTheme.glassmorphicLightBorder, width: 2),
                         ),
                         child: CircleAvatar(
                           radius: 18,
@@ -87,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           return Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
+                              border: Border.all(color: LivTheme.glassmorphicLightBorder, width: 2),
                             ),
                             child: CircleAvatar(
                               radius: 18,
@@ -105,11 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
                 'LIV',
-                style: TextStyle(
-                  color: Colors.white,
+                style: LivTheme.getBlackTitle(context).copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                   letterSpacing: 1,
@@ -132,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: Container(
-        decoration: LivDecorations.gradientDecoration,
+        decoration: LivDecorations.mainAppBackground,
         child: SafeArea(
           child: _buildBody(),
         ),
@@ -192,18 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
+              decoration: LivDecorations.glassmorphicCard,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -224,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Connect with friends and build meaningful relationships',
                     style: TextStyle(
                       fontSize: isSmallScreen ? 14 : 16,
-                      color: const Color(0xFF666666),
+                      color: Colors.white,
                       height: 1.4,
                     ),
                   ),
@@ -259,34 +247,21 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Your Stats',
-          style: TextStyle(
+          'Your Social Data',
+          style: LivTheme.getBlackTitle(context).copyWith(
             fontSize: isSmallScreen ? 18 : 20,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2C2C2C),
           ),
         ),
         const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
-              child: _buildStatCard('Matches', '12', const Color(0xFFE91E63)),
+              child: _buildStatCard('Friends', '12', const Color(0xFFE91E63)),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _buildStatCard('Messages', '24', const Color(0xFF9C27B0)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard('Profile Views', '156', const Color(0xFF673AB7)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildStatCard('Rating', '4.8', const Color(0xFF3F51B5)),
             ),
           ],
         ),
@@ -300,54 +275,52 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           'Quick Actions',
-          style: TextStyle(
+          style: LivTheme.getBlackTitle(context).copyWith(
             fontSize: isSmallScreen ? 18 : 20,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF2C2C2C),
           ),
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: isSmallScreen ? 1.2 : 1.0,
+        // Quick Actions Grid - 2 cards in first row, 1 centered in second row
+        Column(
           children: [
-            _buildNavigationCard(
-              'AI Coach',
-              'Get personalized advice',
-              Icons.psychology,
-              const Color(0xFFE91E63),
-              () => _navigateToScreen(context, const CoachScreen()),
+            // First row with 2 cards
+            Row(
+              children: [
+                Expanded(
+                  child: _buildNavigationCard(
+                    'AI Coach',
+                    'Get personalized advice',
+                    Icons.psychology,
+                    const Color(0xFFE91E63),
+                    () => _navigateToScreen(context, const CoachScreen()),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildNavigationCard(
+                    'Feed',
+                    'Discover new friends',
+                    Icons.explore,
+                    const Color(0xFF9C27B0),
+                    () => _navigateToScreen(context, const FeedScreen()),
+                  ),
+                ),
+              ],
             ),
-            _buildNavigationCard(
-              'Feed',
-              'Discover new friends',
-              Icons.explore,
-              const Color(0xFF9C27B0),
-              () => _navigateToScreen(context, const FeedScreen()),
-            ),
-            _buildNavigationCard(
-              'Profile',
-              'View your profile',
-              Icons.person,
-              const Color(0xFF673AB7),
-              () => _navigateToScreen(context, ProfileScreen(
-                onBackPressed: () {
-                  setState(() {
-                    _currentIndex = 0; // Switch to home tab
-                  });
-                },
-              )),
-            ),
-            _buildNavigationCard(
-              'Feedback',
-              'Share your thoughts',
-              Icons.feedback,
-              const Color(0xFF3F51B5),
-              () => _navigateToScreen(context, const FeedbackScreen()),
+            const SizedBox(height: 12),
+            // Second row with centered feedback card
+            Center(
+              child: SizedBox(
+                width: (MediaQuery.of(context).size.width - 48) / 2, // Half width minus padding
+                child: _buildNavigationCard(
+                  'Feedback',
+                  'Share your thoughts',
+                  Icons.feedback,
+                  const Color(0xFF3F51B5),
+                  () => _navigateToScreen(context, const FeedbackScreen()),
+                ),
+              ),
             ),
           ],
         ),
@@ -359,17 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: double.infinity,
       height: 56,
-      decoration: BoxDecoration(
-        gradient: LivTheme.mainAppGradient,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFE91E63).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: LivDecorations.buttonGradientDecoration,
       child: ElevatedButton.icon(
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -386,13 +349,12 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        icon: const Icon(Icons.flash_on, color: Colors.white),
-        label: const Text(
+        icon: const Icon(Icons.flash_on, color: Color(0xFF1565C0)),
+        label: Text(
           'Find Friends Now',
-          style: TextStyle(
+          style: LivTheme.getBlackButton(context).copyWith(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.white,
           ),
         ),
       ),
@@ -415,11 +377,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const SizedBox(height: 20),
             Text(
-              'Your Matches',
-              style: TextStyle(
+              'Your Friends',
+              style: LivTheme.getBlackTitle(context).copyWith(
                 fontSize: isSmallScreen ? 24 : 28,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF2C2C2C),
               ),
             ),
             const SizedBox(height: 20),
@@ -455,10 +416,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Text(
               'Messages',
-              style: TextStyle(
+              style: LivTheme.getBlackTitle(context).copyWith(
                 fontSize: isSmallScreen ? 24 : 28,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF2C2C2C),
               ),
             ),
             const SizedBox(height: 20),
@@ -494,10 +454,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 20),
             Text(
               'Discover People',
-              style: TextStyle(
+              style: LivTheme.getBlackTitle(context).copyWith(
                 fontSize: isSmallScreen ? 24 : 28,
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFF2C2C2C),
               ),
             ),
             const SizedBox(height: 20),
@@ -566,34 +525,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                       Text(
                         userService.displayName,
-                        style: const TextStyle(
-                        fontSize: 24,
+                        style: LivTheme.getBlackTitle(context).copyWith(
+                          fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
                         ),
                       ),
                       Text(
                         '${userService.age} years old',
-                        style: const TextStyle(
+                        style: LivTheme.getBlackBodySecondary(context).copyWith(
                           fontSize: 16,
-                          color: Colors.white70,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          const                           Icon(
                             Icons.location_on,
-                            color: Colors.white70,
+                            color: LivTheme.glassmorphicLightBorder,
                             size: 16,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             userService.location,
-                            style: const TextStyle(
+                            style: LivTheme.getBlackBodySecondary(context).copyWith(
                               fontSize: 14,
-                              color: Colors.white70,
                             ),
                 ),
               ],
@@ -607,32 +563,22 @@ class _HomeScreenState extends State<HomeScreen> {
             // About Section
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.2)),
-                        ),
+                        decoration: LivDecorations.glassmorphicLightCard,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-                              'About Me',
-          style: TextStyle(
-                      fontSize: 18,
-            fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
+        Text(
+          'About Me',
+          style: LivTheme.getBlackSubtitle(context),
+        ),
                             const SizedBox(height: 8),
                   Consumer<UserService>(
                     builder: (context, userService, child) {
                       return Text(
                               userService.bio,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.white70,
-                                height: 1.4,
-                              ),
+                        style: LivTheme.getBlackBodySecondary(context).copyWith(
+                          height: 1.4,
+                        ),
                       );
                     },
                             ),
@@ -653,8 +599,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit Profile'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF667eea),
+                        backgroundColor: LivTheme.glassmorphicLightBackground,
+                        foregroundColor: LivTheme.accentBlue,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
@@ -668,8 +614,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       icon: const Icon(Icons.message),
                       label: const Text('Message'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF667eea),
-                        foregroundColor: Colors.white,
+                        backgroundColor: LivTheme.accentBlue,
+                        foregroundColor: LivTheme.glassmorphicLightBorder,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                     ),
@@ -686,14 +632,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
+        color: LivTheme.glassmorphicBackground,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: LivTheme.glassmorphicBorder,
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
             spreadRadius: 2,
-            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -701,7 +651,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text(
             value,
-            style: TextStyle(
+            style: LivTheme.getBlackTitle(context).copyWith(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
@@ -712,8 +662,8 @@ class _HomeScreenState extends State<HomeScreen> {
             title,
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF666666),
               fontWeight: FontWeight.w500,
+              color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
@@ -729,19 +679,39 @@ class _HomeScreenState extends State<HomeScreen> {
     Color color,
     VoidCallback onTap,
   ) {
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final isSmallScreen = screenWidth < 600;
+    
+    // Very conservative scaling to prevent overflow
+    final scaleFactor = isSmallScreen ? 0.7 : (screenWidth / 600).clamp(0.7, 1.0);
+    
+    final cardPadding = isSmallScreen ? 10.0 : 12.0; 
+    final iconSize = isSmallScreen ? 20.0 : 24.0; 
+    final iconPadding = isSmallScreen ? 6.0 : 8.0; 
+    final titleFontSize = isSmallScreen ? 14.0 : 16.0; 
+    final subtitleFontSize = isSmallScreen ? 11.0 : 12.0; 
+    final spacing = isSmallScreen ? 6.0 : 8.0;
+    final borderRadius = isSmallScreen ? 12.0 : 16.0;
+    final iconBorderRadius = isSmallScreen ? 6.0 : 8.0;
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(cardPadding),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
-          borderRadius: BorderRadius.circular(16),
+          color: LivTheme.glassmorphicBackground,
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(
+            color: LivTheme.glassmorphicBorder,
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
               spreadRadius: 2,
-              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -749,35 +719,53 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(iconPadding),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  colors: [
+                    color.withOpacity(0.3),
+                    color.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(iconBorderRadius),
+                border: Border.all(
+                  color: color.withOpacity(0.4),
+                  width: 1.0,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 12 * scaleFactor,
+                    offset: Offset(0, 6 * scaleFactor),
+                  ),
+                ],
               ),
               child: Icon(
                 icon,
-                size: 24,
+                size: iconSize,
                 color: color,
               ),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
+              style: TextStyle(
+                fontSize: titleFontSize,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF2C2C2C),
+                color: Colors.black,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4 * scaleFactor),
             Text(
               subtitle,
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xFF666666),
+              style: TextStyle(
+                fontSize: subtitleFontSize,
+                color: Colors.white,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
@@ -803,24 +791,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: LivDecorations.glassmorphicCard,
       child: Row(
         children: [
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFFE91E63), width: 2),
+              border: Border.all(color: LivTheme.primaryPink, width: 2),
             ),
             child: CircleAvatar(
               radius: 30,
@@ -837,10 +814,9 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   names[index % names.length],
-                  style: const TextStyle(
+                  style: LivTheme.getBlackTitle(context).copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -848,7 +824,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'New York, NY',
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF666666),
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -858,18 +834,29 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE91E63).withOpacity(0.1),
+                          gradient: LinearGradient(
+                            colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: LivTheme.primaryPink.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: TextButton.icon(
                           onPressed: () {
                             _showMessageDialog(context);
                           },
-                          icon: const Icon(Icons.chat, color: Color(0xFFE91E63), size: 16),
+                          icon: const Icon(Icons.chat, color: Colors.white, size: 16),
                           label: const Text(
                             'Chat',
                             style: TextStyle(
-                              color: Color(0xFFE91E63),
+                              color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -882,7 +869,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF9C27B0).withOpacity(0.1),
+                          gradient: LivTheme.mainAppGradient,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: TextButton.icon(
@@ -894,11 +881,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.favorite, color: Color(0xFF9C27B0), size: 16),
+                          icon: const Icon(Icons.favorite, color: Colors.white, size: 16),
                           label: const Text(
                             'Like',
                             style: TextStyle(
-                              color: Color(0xFF9C27B0),
+                              color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -932,14 +919,18 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
+        color: LivTheme.glassmorphicBackground,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: LivTheme.glassmorphicBorder,
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
             spreadRadius: 2,
-            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -959,10 +950,9 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   names[index % names.length],
-                  style: const TextStyle(
+                  style: LivTheme.getBlackTitle(context).copyWith(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -970,7 +960,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   messages[index % messages.length],
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF666666),
+                    color: Colors.white,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -981,15 +971,26 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFE91E63).withOpacity(0.1),
+              gradient: LinearGradient(
+                colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: LivTheme.primaryPink.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Text(
+            child: const Text(
               '2m',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFFE91E63),
                 fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ),
@@ -1014,18 +1015,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 15,
-            spreadRadius: 2,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
+      decoration: LivDecorations.glassmorphicCard,
       child: Row(
         children: [
           CircleAvatar(
@@ -1042,10 +1032,9 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   names[index % names.length],
-                  style: const TextStyle(
+                  style: LivTheme.getBlackTitle(context).copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1053,15 +1042,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   '${ages[index % ages.length]} years old',
                   style: const TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF666666),
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.location_on,
-                      color: Color(0xFF666666),
+                      color: LivTheme.textBlack54,
                       size: 16,
                     ),
                     const SizedBox(width: 4),
@@ -1069,7 +1058,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       locations[index % locations.length],
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF666666),
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -1094,9 +1083,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             );
                           },
                           icon: const Icon(Icons.favorite, size: 16, color: Colors.white),
-                          label: const Text(
+                          label: Text(
                             'Like',
-                            style: TextStyle(
+                            style: LivTheme.getBlackButton(context).copyWith(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
@@ -1110,8 +1099,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE91E63).withOpacity(0.1),
+                          gradient: LinearGradient(
+                            colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: LivTheme.primaryPink.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
                         child: TextButton.icon(
                           onPressed: () {
@@ -1122,13 +1122,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.message, size: 16, color: Color(0xFFE91E63)),
+                          icon: const Icon(Icons.message, size: 16, color: Colors.white),
                           label: const Text(
                             'Message',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFE91E63),
+                              color: Colors.white,
                             ),
                           ),
                         ),

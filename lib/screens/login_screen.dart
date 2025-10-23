@@ -132,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
         animation: _backgroundOpacity,
         builder: (context, child) {
           return Container(
-            decoration: LivDecorations.gradientDecoration,
+            decoration: LivDecorations.mainAppBackground,
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -215,8 +215,8 @@ class _LoginScreenState extends State<LoginScreen>
                                   borderRadius: BorderRadius.circular(20),
                                   border: Border.all(color: Colors.white.withOpacity(0.2)),
                                 ),
-                                child: Text(
-                                  'Connect with Friends',
+                                  child: Text(
+                                    'Connect with friends and build meaningful relationships',
                                   style: TextStyle(
                                     fontSize: isSmallScreen ? 16 : 18,
                                     fontWeight: FontWeight.w500,

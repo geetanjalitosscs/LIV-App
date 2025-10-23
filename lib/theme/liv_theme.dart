@@ -57,6 +57,9 @@ class LivTheme {
   static const Color textPrimary = Color(0xFF2C2C2C);
   static const Color textSecondary = Color(0xFF666666);
   static const Color textTertiary = Color(0xFF9E9E9E);
+  static const Color textBlack = Color(0xFF000000);
+  static const Color textBlack87 = Color(0xDD000000);
+  static const Color textBlack54 = Color(0x8A000000);
   
   // Gradient Colors
   static const List<Color> primaryGradient = [
@@ -260,6 +263,74 @@ class LivTheme {
     ),
     fontWeight: FontWeight.w600,
     color: Colors.white,
+    letterSpacing: 0.5,
+  );
+
+  // Black Text Styles
+  static TextStyle getBlackTitle(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 24, 
+      tablet: 26, 
+      desktop: 28,
+      narrowWindow: 22,
+    ),
+    fontWeight: FontWeight.bold,
+    color: textBlack,
+  );
+
+  static TextStyle getBlackSubtitle(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 18, 
+      tablet: 20, 
+      desktop: 22,
+      narrowWindow: 16,
+    ),
+    fontWeight: FontWeight.w600,
+    color: textBlack87,
+  );
+
+  static TextStyle getBlackBody(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.normal,
+    color: textBlack87,
+  );
+
+  static TextStyle getBlackBodySecondary(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 14, 
+      tablet: 16, 
+      desktop: 18,
+      narrowWindow: 12,
+    ),
+    fontWeight: FontWeight.normal,
+    color: textBlack54,
+  );
+
+  static TextStyle getBlackCaption(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 12, 
+      tablet: 14, 
+      desktop: 16,
+      narrowWindow: 10,
+    ),
+    fontWeight: FontWeight.normal,
+    color: textBlack54,
+  );
+
+  static TextStyle getBlackButton(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.w600,
+    color: textBlack87,
     letterSpacing: 0.5,
   );
 
@@ -567,10 +638,10 @@ class LivDecorations {
     ),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withOpacity(0.1),
-        blurRadius: 25,
-        offset: const Offset(0, 8),
-        spreadRadius: 0,
+        color: Colors.black.withOpacity(0.2),
+        blurRadius: 20,
+        offset: const Offset(0, 10),
+        spreadRadius: 2,
       ),
     ],
   );

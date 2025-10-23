@@ -14,6 +14,10 @@ class UserService extends ChangeNotifier {
   int _age = 25;
   String _location = 'New York';
   
+  // Background customization
+  String? _backgroundImage;
+  int _backgroundColor = 0xFF42A5F5; // Default blue color
+  
   // Getters
   String? get selectedAvatar => _selectedAvatar;
   String get username => _username;
@@ -21,6 +25,10 @@ class UserService extends ChangeNotifier {
   String get bio => _bio;
   int get age => _age;
   String get location => _location;
+  
+  // Background customization getters
+  String? get backgroundImage => _backgroundImage;
+  int get backgroundColor => _backgroundColor;
   
   // Set default avatar on first access
   String get currentAvatar => _selectedAvatar ?? 'assets/images/pngtree-google.png';
@@ -35,11 +43,15 @@ class UserService extends ChangeNotifier {
     String? bio,
     int? age,
     String? location,
+    String? backgroundImage,
+    int? backgroundColor,
   }) {
     if (displayName != null) _displayName = displayName;
     if (bio != null) _bio = bio;
     if (age != null) _age = age;
     if (location != null) _location = location;
+    if (backgroundImage != null) _backgroundImage = backgroundImage;
+    if (backgroundColor != null) _backgroundColor = backgroundColor;
     notifyListeners();
   }
   

@@ -168,7 +168,19 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                         SizedBox(
                           width: double.infinity,
                           height: 52,
-                          child: ElevatedButton(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LivTheme.mainAppGradient,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: LivTheme.primaryPink.withOpacity(0.4),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: ElevatedButton(
                             onPressed: () async {
                               // Open in-app creator on all native platforms; use browser on Web
                               final bool openInApp = !kIsWeb && (
@@ -196,13 +208,15 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2563EB),
-                              foregroundColor: Colors.white,
+                              backgroundColor: Colors.transparent,
+                              foregroundColor: Colors.black,
+                              shadowColor: Colors.transparent,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              elevation: 8,
+                              elevation: 0,
                             ),
                             child: const Text('Create Avatar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                           ),
+                            ),
                         ),
                       ],
                     ),

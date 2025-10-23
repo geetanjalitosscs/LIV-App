@@ -103,7 +103,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         animation: _backgroundTint,
         builder: (context, child) {
           return Container(
-            decoration: LivDecorations.gradientDecoration,
+            decoration: LivDecorations.mainAppBackground,
             child: SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),

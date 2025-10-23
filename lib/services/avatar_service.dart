@@ -24,7 +24,7 @@ class AvatarService {
       final selectedGlbPath = prefs.getString('lastAvatarGlbPath');
       
       if (selectedAvatarId != null && selectedPngPath != null && File(selectedPngPath).existsSync()) {
-        print('Using selected profile avatar: $selectedAvatarId');
+        // print('Using selected profile avatar: $selectedAvatarId'); // Removed to prevent log spam
         return {
           'id': selectedAvatarId,
           'glb': selectedGlbPath != null && File(selectedGlbPath).existsSync() ? selectedGlbPath : null,
@@ -61,7 +61,7 @@ class AvatarService {
       final avatarId = fileName.replaceAll('.png', '');
       final glbPath = '$_uploadsPath\\$avatarId.glb';
       
-      print('Found latest avatar: $avatarId');
+      // print('Found latest avatar: $avatarId'); // Removed to prevent log spam
       return {
         'id': avatarId,
         'glb': File(glbPath).existsSync() ? glbPath : null,

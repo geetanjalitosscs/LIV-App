@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/user_service.dart';
-import '../services/auth_service.dart';
+import '../widgets/profile_image_dialog.dart';
 import '../services/avatar_generator_service.dart';
+import '../services/auth_service.dart';
 import '../services/avatar_service.dart';
 import '../theme/liv_theme.dart';
 import 'edit_profile_screen.dart';
-import 'avatar_generation_screen.dart';
-import 'avatar_creator_screen.dart';
 import 'avatar_main_screen.dart';
-import 'avatar_management_screen.dart';
+import 'avatar_creator_screen.dart';
+import 'avatar_generation_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -81,13 +81,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     try {
       print('Profile screen: Starting avatar refresh...');
       final avatarPath = await AvatarService.getAvatarImagePath();
-      print('Profile screen loading avatar: $avatarPath');
       
       if (avatarPath != null && File(avatarPath).existsSync()) {
         setState(() {
           _readyPlayerMeAvatarPath = avatarPath;
         });
-        print('Profile screen avatar updated successfully: $avatarPath');
       } else {
         setState(() {
           _readyPlayerMeAvatarPath = null;
@@ -456,7 +454,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               onTap: () async {
                                 // Refresh avatar before showing dialog
                                 await _loadReadyPlayerMeAvatar();
-                                _showImageSourceDialog();
+                                final result = await ProfileImageDialog.show(context);
+                                if (result != null) {
+                                  switch (result) {
+                                    case 'gallery':
+                                      _pickImageFromGallery();
+                                      break;
+                                    case 'avatar':
+                                      _navigateToReadyPlayerMe();
+                                      break;
+                                    case 'view':
+                                      final avatarPath = await AvatarService.getAvatarImagePath();
+                                      FullScreenAvatarViewer.show(context, imagePath: avatarPath);
+                                      break;
+                                  }
+                                }
                               },
                               child: Stack(
                                 children: [

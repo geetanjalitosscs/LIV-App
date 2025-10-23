@@ -12,6 +12,9 @@ class CustomBottomNavigation extends StatelessWidget {
   
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+    
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -38,29 +41,36 @@ class CustomBottomNavigation extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 8 : 16, 
+            vertical: isSmallScreen ? 6 : 8
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _buildNavItem(
+                context: context,
                 icon: Icons.home, // Home is now first
                 label: 'Home',
                 index: 0,
                 isActive: currentIndex == 0,
               ),
               _buildNavItem(
+                context: context,
                 icon: Icons.favorite,
                 label: 'Friends',
                 index: 1,
                 isActive: currentIndex == 1,
               ),
               _buildNavItem(
+                context: context,
                 icon: Icons.chat,
                 label: 'Messages',
                 index: 2,
                 isActive: currentIndex == 2,
               ),
               _buildNavItem(
+                context: context,
                 icon: Icons.group,
                 label: 'Discover',
                 index: 3,
@@ -74,17 +84,28 @@ class CustomBottomNavigation extends StatelessWidget {
   }
   
   Widget _buildNavItem({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required int index,
     required bool isActive,
   }) {
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+    
+    // Responsive sizing
+    final iconSize = isSmallScreen ? 18.0 : 24.0;
+    final fontSize = isSmallScreen ? 10.0 : 12.0;
+    final horizontalPadding = isSmallScreen ? 6.0 : 12.0;
+    final verticalPadding = isSmallScreen ? 6.0 : 8.0;
+    final spacing = isSmallScreen ? 2.0 : 4.0;
+    
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => onTap(index),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
           decoration: BoxDecoration(
             color: isActive 
               ? Colors.white.withOpacity(0.2) 
@@ -107,18 +128,21 @@ class CustomBottomNavigation extends StatelessWidget {
                 color: isActive 
                   ? Colors.white 
                   : Colors.black,
-                size: 24,
+                size: iconSize,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: spacing),
               Text(
                 label,
                 style: TextStyle(
                   color: isActive 
                     ? Colors.white 
                     : Colors.black,
-                  fontSize: 12,
+                  fontSize: fontSize,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

@@ -153,7 +153,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
         animation: _backgroundOpacity,
         builder: (context, child) {
           return Container(
-            decoration: LivDecorations.gradientDecoration,
+            decoration: LivDecorations.mainAppBackground,
             child: SafeArea(
               child: ResponsiveLayout(
                 narrowWindow: _buildNarrowLayout(),
