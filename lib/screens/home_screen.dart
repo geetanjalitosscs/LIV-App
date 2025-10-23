@@ -5,10 +5,11 @@ import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/theme_service.dart';
 import '../services/avatar_service.dart';
+import '../theme/liv_theme.dart';
 import '../widgets/bottom_navigation.dart';
 import 'coach_screen.dart';
 import 'feed_screen.dart';
-import 'avatar_setup_screen.dart';
+import 'edit_profile_screen.dart';
 import 'feedback_screen.dart';
 import 'welcome_back_screen.dart';
 import 'profile_screen.dart';
@@ -50,40 +51,22 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFFE91E63).withOpacity(0.9),
-                const Color(0xFF9C27B0).withOpacity(0.9),
-              ],
-            ),
-          ),
+          decoration: LivDecorations.mainAppBackground,
         ),
         title: Row(
           children: [
-            FutureBuilder<String?>(
-              future: AvatarService.getAvatarImagePath(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundImage: FileImage(File(snapshot.data!)),
-                      onBackgroundImageError: (exception, stackTrace) {
-                        // Handle error if needed
-                      },
-                    ),
-                  );
-                } else {
-                  // Fallback to default avatar
-                  return Consumer<UserService>(
-                    builder: (context, userService, child) {
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _currentIndex = 4; // Switch to profile tab
+                  });
+                },
+                child: FutureBuilder<String?>(
+                  future: AvatarService.getAvatarImagePath(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
                       return Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -91,16 +74,35 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundImage: AssetImage(userService.currentAvatar),
+                          backgroundImage: FileImage(File(snapshot.data!)),
                           onBackgroundImageError: (exception, stackTrace) {
                             // Handle error if needed
                           },
                         ),
                       );
-                    },
-                  );
-                }
-              },
+                    } else {
+                      // Fallback to default avatar
+                      return Consumer<UserService>(
+                        builder: (context, userService, child) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundImage: AssetImage(userService.currentAvatar),
+                              onBackgroundImageError: (exception, stackTrace) {
+                                // Handle error if needed
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    }
+                  },
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -118,28 +120,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              Provider.of<AuthService>(context, listen: false).signOut();
-            },
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () {
+                Provider.of<AuthService>(context, listen: false).signOut();
+              },
+            ),
           ),
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF8BBD9),
-              Color(0xFFE1BEE7),
-              Color(0xFFC5CAE9),
-              Color(0xFFB39DDB),
-            ],
-            stops: [0.0, 0.3, 0.7, 1.0],
-          ),
-        ),
+        decoration: LivDecorations.gradientDecoration,
         child: SafeArea(
           child: _buildBody(),
         ),
@@ -166,7 +159,13 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return _buildFeedContent();
       case 4:
-        return const ProfileScreen();
+        return ProfileScreen(
+          onBackPressed: () {
+            setState(() {
+              _currentIndex = 0; // Switch to home tab
+            });
+          },
+        );
       default:
         return _buildHomeContent();
     }
@@ -335,7 +334,13 @@ class _HomeScreenState extends State<HomeScreen> {
               'View your profile',
               Icons.person,
               const Color(0xFF673AB7),
-              () => _navigateToScreen(context, const ProfileScreen()),
+              () => _navigateToScreen(context, ProfileScreen(
+                onBackPressed: () {
+                  setState(() {
+                    _currentIndex = 0; // Switch to home tab
+                  });
+                },
+              )),
             ),
             _buildNavigationCard(
               'Feedback',
@@ -355,9 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
       width: double.infinity,
       height: 56,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
-        ),
+        gradient: LivTheme.mainAppGradient,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -523,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Consumer<UserService>(
                 builder: (context, userService, child) {
                 return GestureDetector(
-                        onTap: () => _navigateToScreen(context, const AvatarSetupScreen()),
+                        onTap: () => _navigateToScreen(context, const EditProfileScreen()),
                         child: Stack(
                           children: [
                             CircleAvatar(
@@ -645,7 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        _navigateToScreen(context, const AvatarSetupScreen());
+                        _navigateToScreen(context, const EditProfileScreen());
                       },
                       icon: const Icon(Icons.edit),
                       label: const Text('Edit Profile'),
@@ -1078,9 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Container(
                         height: 36,
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
-                          ),
+                          gradient: LivTheme.mainAppGradient,
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: TextButton.icon(

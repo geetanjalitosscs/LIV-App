@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../services/three_dart_avatar_service.dart';
+import '../theme/liv_theme.dart';
 
 class Avatar3DViewerScreen extends StatefulWidget {
   final Map<String, dynamic> avatarSpecs;

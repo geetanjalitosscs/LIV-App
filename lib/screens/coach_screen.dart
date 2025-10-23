@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/ai_coach_service.dart';
 import '../services/health_service.dart';
 import '../widgets/typing_text.dart';
+import '../theme/liv_theme.dart';
 
 class CoachScreen extends StatefulWidget {
   const CoachScreen({super.key});
@@ -101,16 +102,7 @@ class _CoachScreenState extends State<CoachScreen>
         animation: _backgroundTint,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _backgroundTint.value ?? const Color(0xFF667eea),
-                  const Color(0xFF764ba2),
-                ],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),

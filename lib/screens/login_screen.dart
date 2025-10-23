@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../theme/liv_theme.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -111,34 +112,10 @@ class _LoginScreenState extends State<LoginScreen>
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
-      decoration: InputDecoration(
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: const Color(0xFF666666)),
+        prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE91E63), width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E)),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFE53E3E), width: 2),
-        ),
-        labelStyle: const TextStyle(color: Color(0xFF666666)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       ),
       validator: validator,
     );
@@ -155,19 +132,7 @@ class _LoginScreenState extends State<LoginScreen>
         animation: _backgroundOpacity,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFFF8BBD9).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFE1BEE7).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFC5CAE9).withOpacity(_backgroundOpacity.value),
-                  const Color(0xFFB39DDB).withOpacity(_backgroundOpacity.value),
-                ],
-                stops: const [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -197,18 +162,10 @@ class _LoginScreenState extends State<LoginScreen>
                                       height: isSmallScreen ? 100 : 140,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                          colors: [
-                                            Color(0xFFE91E63),
-                                            Color(0xFF9C27B0),
-                                            Color(0xFF673AB7),
-                                          ],
-                                        ),
+                                        gradient: LivTheme.mainAppGradient,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFFE91E63).withOpacity(0.3),
+                                            color: LivTheme.primaryPink.withOpacity(0.3),
                                             blurRadius: 30,
                                             spreadRadius: 5,
                                             offset: const Offset(0, 10),
@@ -227,36 +184,47 @@ class _LoginScreenState extends State<LoginScreen>
                               
                               SizedBox(height: isSmallScreen ? 20 : 30),
                               
-                              // App Title
-                              Text(
-                                'LIV',
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 36 : 48,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 3,
-                                  color: const Color(0xFF2C2C2C),
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.white.withOpacity(0.8),
-                                      offset: const Offset(0, 2),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
+                              // App Title with Gradient
+                              ShaderMask(
+                                shaderCallback: (bounds) => LivTheme.mainAppGradient.createShader(bounds),
+                                child: Text(
+                                  'LIV',
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 42 : 56,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 4,
+                                    color: Colors.black,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black.withOpacity(0.3),
+                                        offset: const Offset(0, 4),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               
-                              SizedBox(height: isSmallScreen ? 8 : 12),
+                              SizedBox(height: isSmallScreen ? 12 : 16),
                               
-                              // Subtitle
-                              Text(
-                                'Connect with Friends',
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 16 : 18,
-                                  fontWeight: FontWeight.w300,
-                                  color: const Color(0xFF5A5A5A),
-                                  letterSpacing: 1,
+                              // Subtitle with better styling
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.white.withOpacity(0.2)),
                                 ),
-                                textAlign: TextAlign.center,
+                                child: Text(
+                                  'Connect with Friends',
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 16 : 18,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black,
+                                    letterSpacing: 1.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                               
                               SizedBox(height: isSmallScreen ? 30 : 40),
@@ -275,14 +243,31 @@ class _LoginScreenState extends State<LoginScreen>
                                           maxWidth: isSmallScreen ? double.infinity : 400,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.95),
-                                          borderRadius: BorderRadius.circular(24),
+                                          gradient: LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Colors.white.withOpacity(0.25),
+                                              Colors.white.withOpacity(0.1),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(28),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.3),
+                                            width: 1.5,
+                                          ),
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.black.withOpacity(0.1),
-                                              blurRadius: 30,
-                                              spreadRadius: 5,
-                                              offset: const Offset(0, 15),
+                                              blurRadius: 40,
+                                              spreadRadius: 0,
+                                              offset: const Offset(0, 20),
+                                            ),
+                                            BoxShadow(
+                                              color: Colors.white.withOpacity(0.1),
+                                              blurRadius: 20,
+                                              spreadRadius: 0,
+                                              offset: const Offset(0, -10),
                                             ),
                                           ],
                                         ),
@@ -296,8 +281,9 @@ class _LoginScreenState extends State<LoginScreen>
                                                 // Mode Toggle
                                                 Container(
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFFF5F5F5),
-                                                    borderRadius: BorderRadius.circular(16),
+                                                    color: Colors.white.withOpacity(0.15),
+                                                    borderRadius: BorderRadius.circular(20),
+                                                    border: Border.all(color: Colors.white.withOpacity(0.2)),
                                                   ),
                                                   child: Row(
                                                     children: [
@@ -311,16 +297,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                             padding: const EdgeInsets.symmetric(vertical: 16),
                                                             decoration: BoxDecoration(
                                                               gradient: _isLoginMode 
-                                                                ? const LinearGradient(
-                                                                    colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
-                                                                  )
+                                                                ? LivTheme.mainAppGradient
                                                                 : null,
-                                                              borderRadius: BorderRadius.circular(16),
+                                                              borderRadius: BorderRadius.circular(18),
                                                               boxShadow: _isLoginMode ? [
                                                                 BoxShadow(
-                                                                  color: const Color(0xFFE91E63).withOpacity(0.3),
-                                                                  blurRadius: 10,
-                                                                  offset: const Offset(0, 4),
+                                                                  color: LivTheme.primaryPink.withOpacity(0.4),
+                                                                  blurRadius: 15,
+                                                                  offset: const Offset(0, 6),
                                                                 ),
                                                               ] : null,
                                                             ),
@@ -328,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                               'Sign In',
                                                               textAlign: TextAlign.center,
                                                               style: TextStyle(
-                                                                color: _isLoginMode ? Colors.white : const Color(0xFF666666),
+                                                                color: _isLoginMode ? Colors.white : Colors.black,
                                                                 fontWeight: FontWeight.w600,
                                                                 fontSize: 16,
                                                               ),
@@ -346,16 +330,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                             padding: const EdgeInsets.symmetric(vertical: 16),
                                                             decoration: BoxDecoration(
                                                               gradient: !_isLoginMode 
-                                                                ? const LinearGradient(
-                                                                    colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
-                                                                  )
+                                                                ? LivTheme.mainAppGradient
                                                                 : null,
-                                                              borderRadius: BorderRadius.circular(16),
+                                                              borderRadius: BorderRadius.circular(18),
                                                               boxShadow: !_isLoginMode ? [
                                                                 BoxShadow(
-                                                                  color: const Color(0xFFE91E63).withOpacity(0.3),
-                                                                  blurRadius: 10,
-                                                                  offset: const Offset(0, 4),
+                                                                  color: LivTheme.primaryPink.withOpacity(0.4),
+                                                                  blurRadius: 15,
+                                                                  offset: const Offset(0, 6),
                                                                 ),
                                                               ] : null,
                                                             ),
@@ -363,7 +345,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                               'Sign Up',
                                                               textAlign: TextAlign.center,
                                                               style: TextStyle(
-                                                                color: !_isLoginMode ? Colors.white : const Color(0xFF666666),
+                                                                color: !_isLoginMode ? Colors.white : Colors.black,
                                                                 fontWeight: FontWeight.w600,
                                                                 fontSize: 16,
                                                               ),
@@ -405,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                   suffixIcon: IconButton(
                                                     icon: Icon(
                                                       _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                                      color: const Color(0xFF666666),
+                                                      color: LivTheme.neutralGrey600,
                                                     ),
                                                     onPressed: () {
                                                       setState(() {
@@ -435,7 +417,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                                        color: const Color(0xFF666666),
+                                                        color: LivTheme.neutralGrey600,
                                                       ),
                                                       onPressed: () {
                                                         setState(() {
@@ -464,14 +446,12 @@ class _LoginScreenState extends State<LoginScreen>
                                                       width: double.infinity,
                                                       height: 56,
                                                       decoration: BoxDecoration(
-                                                        gradient: const LinearGradient(
-                                                          colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
-                                                        ),
-                                                        borderRadius: BorderRadius.circular(16),
+                                                        gradient: LivTheme.mainAppGradient,
+                                                        borderRadius: BorderRadius.circular(20),
                                                         boxShadow: [
                                                           BoxShadow(
-                                                            color: const Color(0xFFE91E63).withOpacity(0.3),
-                                                            blurRadius: 15,
+                                                            color: LivTheme.primaryPink.withOpacity(0.4),
+                                                            blurRadius: 20,
                                                             offset: const Offset(0, 8),
                                                           ),
                                                         ],
@@ -482,7 +462,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                           backgroundColor: Colors.transparent,
                                                           shadowColor: Colors.transparent,
                                                           shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(16),
+                                                            borderRadius: BorderRadius.circular(20),
                                                           ),
                                                         ),
                                                         child: authService.isLoading
@@ -512,11 +492,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                   const SizedBox(height: 20),
                                                   TextButton(
                                                     onPressed: _showForgotPasswordDialog,
-                                                    child: const Text(
+                                                    child: Text(
                                                       'Forgot Password?',
                                                       style: TextStyle(
-                                                        color: Color(0xFF9C27B0),
+                                                        color: Colors.black,
                                                         fontWeight: FontWeight.w500,
+                                                        fontSize: 14,
+                                                        decoration: TextDecoration.underline,
+                                                        decorationColor: Colors.black.withOpacity(0.7),
                                                       ),
                                                     ),
                                                   ),
@@ -530,7 +513,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                     Expanded(
                                                       child: Container(
                                                         height: 1,
-                                                        color: const Color(0xFFE0E0E0),
+                                                        color: Colors.black.withOpacity(0.3),
                                                       ),
                                                     ),
                                                     Padding(
@@ -538,15 +521,16 @@ class _LoginScreenState extends State<LoginScreen>
                                                       child: Text(
                                                         'OR',
                                                         style: TextStyle(
-                                                          color: const Color(0xFF666666),
+                                                          color: Colors.black,
                                                           fontWeight: FontWeight.w500,
+                                                          fontSize: 14,
                                                         ),
                                                       ),
                                                     ),
                                                     Expanded(
                                                       child: Container(
                                                         height: 1,
-                                                        color: const Color(0xFFE0E0E0),
+                                                        color: Colors.black.withOpacity(0.3),
                                                       ),
                                                     ),
                                                   ],
@@ -561,17 +545,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                       width: double.infinity,
                                                       height: 56,
                                                       decoration: BoxDecoration(
-                                                        color: Colors.white,
-                                                        borderRadius: BorderRadius.circular(16),
-                                                        border: Border.all(
-                                                          color: const Color(0xFFE0E0E0),
-                                                          width: 1,
-                                                        ),
+                                                        color: Colors.white.withOpacity(0.9),
+                                                        borderRadius: BorderRadius.circular(20),
+                                                        border: Border.all(color: Colors.white.withOpacity(0.3)),
                                                         boxShadow: [
                                                           BoxShadow(
-                                                            color: Colors.black.withOpacity(0.05),
-                                                            blurRadius: 10,
-                                                            offset: const Offset(0, 4),
+                                                            color: Colors.black.withOpacity(0.1),
+                                                            blurRadius: 20,
+                                                            offset: const Offset(0, 8),
                                                           ),
                                                         ],
                                                       ),

@@ -4,16 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart';
 import '../services/avatar_generator_service.dart';
 import '../services/avatar_service.dart';
-import 'avatar_setup_screen.dart';
+import '../theme/liv_theme.dart';
+import 'edit_profile_screen.dart';
 import 'avatar_generation_screen.dart';
 import 'avatar_creator_screen.dart';
 import 'avatar_main_screen.dart';
 import 'avatar_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final VoidCallback? onBackPressed;
+  
+  const ProfileScreen({super.key, this.onBackPressed});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -254,6 +258,131 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
+  // Show logout confirmation dialog
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: LivDecorations.dialogDecoration,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.2),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.logout,
+                    color: Colors.red,
+                    size: 32,
+                  ),
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Title
+                Text(
+                  'Logout',
+                  style: LivTheme.getDialogTitle(context),
+                ),
+                
+                const SizedBox(height: 12),
+                
+                // Message
+                Text(
+                  'Are you sure you want to logout?',
+                  style: LivTheme.getDialogBody(context),
+                  textAlign: TextAlign.center,
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close dialog
+                            },
+                            style: LivButtonStyles.dialogCancelButton,
+                            child: Text(
+                              'Cancel',
+                              style: LivTheme.getDialogButton(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    Expanded(
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LivTheme.logoutGradient,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE53E3E).withValues(alpha: 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close dialog
+                              Provider.of<AuthService>(context, listen: false).signOut();
+                            },
+                            style: LivButtonStyles.dialogLogoutButton,
+                            child: const Text(
+                              'Logout',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // Show success snackbar
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -271,12 +400,20 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-            ),
+        decoration: LivDecorations.mainAppBackground,
+        ),
+        leading: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              // Use callback to navigate to home tab, or fallback to pop
+              if (widget.onBackPressed != null) {
+                widget.onBackPressed!();
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
           ),
         ),
         title: const Text(
@@ -285,203 +422,206 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         ),
         foregroundColor: Colors.white,
       ),
-      body: Focus(
-        onFocusChange: (hasFocus) {
-          if (hasFocus) {
-            // Refresh avatar when screen regains focus
-            print('Profile screen: Focus gained - refreshing avatar');
-            _loadReadyPlayerMeAvatar();
-          }
-        },
-        child: Consumer<UserService>(
-          builder: (context, userService, child) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  // Profile Header
-                  GestureDetector(
-                    onTap: () async {
-                      // Refresh avatar before showing dialog
-                      await _loadReadyPlayerMeAvatar();
-                      _showImageSourceDialog();
-                    },
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundImage: _getProfileImage(userService),
-                          onBackgroundImageError: (exception, stackTrace) {
-                            // Handle error if needed
-                            print('Profile image error: $exception');
-                          },
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Color(0xFFed4273),
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                
-                // Loading indicator for avatar generation
-                if (_isGenerating)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFed4273)),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Generating avatar...',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).brightness == Brightness.light
-                                ? Colors.black87
-                                : Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                // Profile Info
-                Text(
-                  userService.displayName,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.black87
-                            : Colors.white,
-                      ),
-                ),
-                Text(
-                  '${userService.age} years old',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.black87
-                            : Colors.white,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.black87
-                          : Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      userService.location,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
-                        color: Theme.of(context).brightness == Brightness.light
-                            ? Colors.black87
-                            : Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-
-                // About Section
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardTheme.color,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Theme.of(context).brightness == Brightness.light
-                          ? Colors.grey[300]!
-                          : const Color(0xFF404040),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'About Me',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).brightness == Brightness.light
-                                  ? Colors.black87
-                                  : Colors.white,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        userService.bio,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              height: 1.4,
-                              color: Theme.of(context).brightness == Brightness.light
-                                  ? Colors.black87
-                                  : Colors.white,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const AvatarSetupScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.edit),
-                        label: const Text('Edit Profile'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFed4273),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _navigateToReadyPlayerMe,
-                        icon: const Icon(Icons.person_outline),
-                        label: const Text('Avatar Manager'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.purple,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                ],
-              ),
-            );
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+          decoration: LivDecorations.mainAppBackground,
+        child: Focus(
+          onFocusChange: (hasFocus) {
+            if (hasFocus) {
+              // Refresh avatar when screen regains focus
+              print('Profile screen: Focus gained - refreshing avatar');
+              _loadReadyPlayerMeAvatar();
+            }
           },
+          child: Consumer<UserService>(
+            builder: (context, userService, child) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    
+                    // Profile Card Container
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: LivDecorations.glassmorphicCard,
+                      child: Column(
+                        children: [
+                          // Profile Header
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () async {
+                                // Refresh avatar before showing dialog
+                                await _loadReadyPlayerMeAvatar();
+                                _showImageSourceDialog();
+                              },
+                              child: Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 60,
+                                    backgroundColor: LivTheme.glassmorphicLightBorder,
+                                    child: CircleAvatar(
+                                      radius: 55,
+                                      backgroundImage: _getProfileImage(userService),
+                                      onBackgroundImageError: (exception, stackTrace) {
+                                        // Handle error if needed
+                                        print('Profile image error: $exception');
+                                      },
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: LivDecorations.cameraIconContainer,
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        color: Color(0xFFE91E63),
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Profile Info
+                          Text(
+                            userService.displayName,
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${userService.age} years old',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.location_on,
+                                color: Colors.white70,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                userService.location,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 24),
+
+                          // About Section
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: LivDecorations.glassmorphicLightCard,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'About Me',
+                                  style: LivTheme.getGlassmorphicSubtitle(context),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  userService.bio,
+                                  style: LivTheme.getGlassmorphicBodySecondary(context).copyWith(height: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 24),
+
+                          // Action Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Container(
+                                    decoration: LivDecorations.editProfileButton,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const EditProfileScreen()),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.edit, color: Colors.white),
+                                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                                      style: LivButtonStyles.glassmorphicEditProfileButton,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Container(
+                                    decoration: LivDecorations.avatarManagerButton,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _navigateToReadyPlayerMe,
+                                      icon: const Icon(Icons.person_outline, color: Colors.white),
+                                      label: const Text('Avatar Manager', style: TextStyle(color: Colors.white, fontSize: 14)),
+                                      style: LivButtonStyles.glassmorphicAvatarManagerButton,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Logout Button
+                          SizedBox(
+                            width: double.infinity,
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.click,
+                              child: Container(
+                                decoration: LivDecorations.logoutButton,
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    _showLogoutDialog();
+                                  },
+                                  icon: const Icon(Icons.logout, color: Colors.white),
+                                  label: const Text('Logout', style: TextStyle(color: Colors.white)),
+                                  style: LivButtonStyles.glassmorphicLogoutButton,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );

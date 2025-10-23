@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/avatar_generator_service.dart';
 import '../services/avatar_2d_service.dart';
+import '../theme/liv_theme.dart';
 import 'avatar_3d_viewer_screen.dart';
 
 extension StringExtension on String {

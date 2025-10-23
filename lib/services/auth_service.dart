@@ -31,6 +31,14 @@ class AuthService extends ChangeNotifier {
     return true;
   }
   
+  Future<bool> signInWithEmail(String email, String password) async {
+    return signInWithEmailAndPassword(email, password);
+  }
+  
+  Future<bool> signUpWithEmail(String email, String password) async {
+    return createUserWithEmailAndPassword(email, password);
+  }
+
   Future<bool> signInWithEmailAndPassword(String email, String password) async {
     _isLoading = true;
     notifyListeners();

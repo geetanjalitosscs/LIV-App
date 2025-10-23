@@ -7,6 +7,7 @@ import '../avatar_features/Avatar_Creator_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
 import '../services/avatar_service.dart';
+import '../theme/liv_theme.dart';
 
 class AvatarMainScreen extends StatefulWidget {
   const AvatarMainScreen({super.key});
@@ -54,13 +55,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-            ),
-          ),
+          decoration: LivDecorations.mainAppBackground,
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -91,33 +86,17 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-          ),
-        ),
+        decoration: LivDecorations.mainAppBackground,
         child: SingleChildScrollView(
           child: Column(
             children: [
+              const SizedBox(height: 40), // Add top spacing
               Center(
                 child: SizedBox(
                   width: cardWidth,
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: cardWidth * 0.06, vertical: cardWidth * 0.06),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.12)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
+                    decoration: LivDecorations.glassmorphicUltraLightCard,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -151,9 +130,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                                   height: iconSize * 1.8,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: hasValidAvatar ? null : const LinearGradient(
-                                      colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
-                                    ),
+                                    gradient: hasValidAvatar ? null : LivTheme.mainAppGradient,
                                     border: hasValidAvatar ? Border.all(color: Colors.white.withOpacity(0.3), width: 3) : null,
                                   ),
                                   clipBehavior: Clip.antiAlias,
@@ -246,11 +223,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
                     padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.12)),
-                    ),
+                    decoration: LivDecorations.glassmorphicUltraLightCard,
                      child: Text(
                        'No other avatars found. Create more avatars to see them here!',
                        style: TextStyle(
@@ -350,18 +323,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      decoration: LivDecorations.glassmorphicUltraLightCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -571,13 +533,7 @@ class FullScreenAvatarView extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-            ),
-          ),
+          decoration: LivDecorations.mainAppBackground,
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),

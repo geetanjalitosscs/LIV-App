@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as winwv;
 import '../services/avatar_service.dart';
+import '../theme/liv_theme.dart';
 
 class AvatarCreatorScreen extends StatefulWidget {
   final String? initialAvatarId;
@@ -349,13 +350,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-            ),
-          ),
+          decoration: LivDecorations.mainAppBackground,
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),

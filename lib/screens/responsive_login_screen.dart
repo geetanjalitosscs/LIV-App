@@ -153,16 +153,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
         animation: _backgroundOpacity,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: LivTheme.primaryGradient.map(
-                  (color) => color.withOpacity(_backgroundOpacity.value),
-                ).toList(),
-                stops: const [0.0, 0.3, 0.7, 1.0],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: ResponsiveLayout(
                 narrowWindow: _buildNarrowLayout(),
@@ -499,7 +490,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
                 padding: ResponsiveHelper.getVerticalPadding(context),
                 decoration: BoxDecoration(
                   gradient: _isLoginMode 
-                    ? const LinearGradient(colors: LivTheme.buttonGradient)
+                    ? LivTheme.mainAppGradient
                     : null,
                   borderRadius: BorderRadius.circular(
                     ResponsiveHelper.getBorderRadius(context),
@@ -527,7 +518,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
                 padding: ResponsiveHelper.getVerticalPadding(context),
                 decoration: BoxDecoration(
                   gradient: !_isLoginMode 
-                    ? const LinearGradient(colors: LivTheme.buttonGradient)
+                    ? LivTheme.mainAppGradient
                     : null,
                   borderRadius: BorderRadius.circular(
                     ResponsiveHelper.getBorderRadius(context),
@@ -554,16 +545,9 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      decoration: InputDecoration(
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
         labelText: 'Email',
         prefixIcon: ResponsiveIcon(Icons.email_outlined),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(
-            ResponsiveHelper.getBorderRadius(context),
-          ),
-        ),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
@@ -581,7 +565,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
-      decoration: InputDecoration(
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
         labelText: 'Password',
         prefixIcon: ResponsiveIcon(Icons.lock_outline),
         suffixIcon: IconButton(
@@ -593,13 +577,6 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
               _obscurePassword = !_obscurePassword;
             });
           },
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(
-            ResponsiveHelper.getBorderRadius(context),
-          ),
         ),
       ),
       validator: (value) {
@@ -618,7 +595,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
     return TextFormField(
       controller: _confirmPasswordController,
       obscureText: _obscureConfirmPassword,
-      decoration: InputDecoration(
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
         labelText: 'Confirm Password',
         prefixIcon: ResponsiveIcon(Icons.lock_outline),
         suffixIcon: IconButton(
@@ -630,13 +607,6 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
               _obscureConfirmPassword = !_obscureConfirmPassword;
             });
           },
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(
-            ResponsiveHelper.getBorderRadius(context),
-          ),
         ),
       ),
       validator: (value) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+import '../theme/liv_theme.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -159,24 +160,18 @@ class _FeedScreenState extends State<FeedScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Community Feed'),
-        backgroundColor: const Color(0xFF667eea),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: LivDecorations.mainAppBackground,
+        ),
       ),
       body: AnimatedBuilder(
         animation: _backgroundTint,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _backgroundTint.value ?? const Color(0xFF667eea),
-                  const Color(0xFF764ba2),
-                ],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: Column(
                 children: [

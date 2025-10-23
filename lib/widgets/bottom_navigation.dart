@@ -66,12 +66,6 @@ class CustomBottomNavigation extends StatelessWidget {
                 index: 3,
                 isActive: currentIndex == 3,
               ),
-              _buildNavItem(
-                icon: Icons.person, // Profile is now last
-                label: 'Profile',
-                index: 4,
-                isActive: currentIndex == 4,
-              ),
             ],
           ),
         ),
@@ -85,46 +79,49 @@ class CustomBottomNavigation extends StatelessWidget {
     required int index,
     required bool isActive,
   }) {
-    return GestureDetector(
-      onTap: () => onTap(index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive 
-            ? Colors.white.withOpacity(0.2) 
-            : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: isActive ? [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              spreadRadius: 1,
-              offset: const Offset(0, 2),
-            ),
-          ] : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive 
-                ? Colors.white 
-                : Colors.black,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => onTap(index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive 
+              ? Colors.white.withOpacity(0.2) 
+              : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isActive ? [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                spreadRadius: 1,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
                 color: isActive 
                   ? Colors.white 
                   : Colors.black,
-                fontSize: 12,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                size: 24,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isActive 
+                    ? Colors.white 
+                    : Colors.black,
+                  fontSize: 12,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

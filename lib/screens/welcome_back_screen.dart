@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../theme/liv_theme.dart';
 
 class WelcomeBackScreen extends StatefulWidget {
   const WelcomeBackScreen({super.key});
@@ -115,16 +116,7 @@ class _WelcomeBackScreenState extends State<WelcomeBackScreen>
         animation: _backgroundTint,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _backgroundTint.value ?? const Color(0xFF667eea),
-                  const Color(0xFF764ba2),
-                ],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),

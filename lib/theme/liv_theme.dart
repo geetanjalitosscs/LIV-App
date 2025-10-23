@@ -71,6 +71,41 @@ class LivTheme {
     Color(0xFF9C27B0),
   ];
 
+  // Main App Gradient (Blue to Pink)
+  static const LinearGradient mainAppGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF42A5F5),
+      Color(0xFFE91E63),
+    ],
+  );
+
+  // Button Gradients
+  static const LinearGradient editProfileGradient = LinearGradient(
+    colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
+  );
+
+  static const LinearGradient avatarManagerGradient = LinearGradient(
+    colors: [Color(0xFF9C27B0), Color(0xFF673AB7)],
+  );
+
+  static const LinearGradient logoutGradient = LinearGradient(
+    colors: [Color(0xFFE53E3E), Color(0xFFC53030)],
+  );
+
+  static const LinearGradient saveAvatarGradient = LinearGradient(
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB)],
+  );
+
+  // Glassmorphic Colors
+  static const Color glassmorphicBackground = Color(0x26FFFFFF); // Colors.white.withOpacity(0.15)
+  static const Color glassmorphicBorder = Color(0x4DFFFFFF); // Colors.white.withOpacity(0.3)
+  static const Color glassmorphicLightBackground = Color(0x1AFFFFFF); // Colors.white.withOpacity(0.1)
+  static const Color glassmorphicLightBorder = Color(0x33FFFFFF); // Colors.white.withOpacity(0.2)
+  static const Color glassmorphicUltraLightBackground = Color(0x0FFFFFFF); // Colors.white.withOpacity(0.06)
+  static const Color glassmorphicUltraLightBorder = Color(0x1FFFFFFF); // Colors.white.withOpacity(0.12)
+
   // Responsive Text Styles
   static TextStyle getHeading1(BuildContext context) => GoogleFonts.roboto(
     fontSize: ResponsiveHelper.getFontSize(context, 
@@ -158,6 +193,108 @@ class LivTheme {
     ),
     fontWeight: FontWeight.normal,
     color: textTertiary,
+  );
+
+  // Glassmorphic Text Styles
+  static TextStyle getGlassmorphicTitle(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 24, 
+      tablet: 26, 
+      desktop: 28,
+      narrowWindow: 22,
+    ),
+    fontWeight: FontWeight.bold,
+    color: Colors.white,
+  );
+
+  static TextStyle getGlassmorphicSubtitle(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 18, 
+      tablet: 20, 
+      desktop: 22,
+      narrowWindow: 16,
+    ),
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+  );
+
+  static TextStyle getGlassmorphicBody(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.normal,
+    color: Colors.white,
+  );
+
+  static TextStyle getGlassmorphicBodySecondary(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 14, 
+      tablet: 16, 
+      desktop: 18,
+      narrowWindow: 12,
+    ),
+    fontWeight: FontWeight.normal,
+    color: Colors.white70,
+  );
+
+  static TextStyle getGlassmorphicCaption(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 12, 
+      tablet: 14, 
+      desktop: 16,
+      narrowWindow: 10,
+    ),
+    fontWeight: FontWeight.normal,
+    color: Colors.white60,
+  );
+
+  static TextStyle getGlassmorphicButton(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.w600,
+    color: Colors.white,
+    letterSpacing: 0.5,
+  );
+
+  // Dialog Text Styles
+  static TextStyle getDialogTitle(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 24, 
+      tablet: 26, 
+      desktop: 28,
+      narrowWindow: 22,
+    ),
+    fontWeight: FontWeight.bold,
+    color: Colors.black87,
+  );
+
+  static TextStyle getDialogBody(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.normal,
+    color: Colors.black54,
+  );
+
+  static TextStyle getDialogButton(BuildContext context) => GoogleFonts.roboto(
+    fontSize: ResponsiveHelper.getFontSize(context, 
+      mobile: 16, 
+      tablet: 18, 
+      desktop: 20,
+      narrowWindow: 14,
+    ),
+    fontWeight: FontWeight.w600,
+    color: Colors.black54,
   );
 
   // Light Theme
@@ -414,6 +551,149 @@ class LivDecorations {
       ),
     ],
   );
+
+  // Main App Background Gradient
+  static BoxDecoration get mainAppBackground => const BoxDecoration(
+    gradient: LivTheme.mainAppGradient,
+  );
+
+  // Glassmorphic Decorations
+  static BoxDecoration get glassmorphicCard => BoxDecoration(
+    color: LivTheme.glassmorphicBackground,
+    borderRadius: BorderRadius.circular(24),
+    border: Border.all(
+      color: LivTheme.glassmorphicBorder,
+      width: 1.5,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.1),
+        blurRadius: 25,
+        offset: const Offset(0, 8),
+        spreadRadius: 0,
+      ),
+    ],
+  );
+
+  static BoxDecoration get glassmorphicLightCard => BoxDecoration(
+    color: LivTheme.glassmorphicLightBackground,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(
+      color: LivTheme.glassmorphicLightBorder,
+      width: 1,
+    ),
+  );
+
+  static BoxDecoration get glassmorphicUltraLightCard => BoxDecoration(
+    color: LivTheme.glassmorphicUltraLightBackground,
+    borderRadius: BorderRadius.circular(20),
+    border: Border.all(
+      color: LivTheme.glassmorphicUltraLightBorder,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.25),
+        blurRadius: 24,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  );
+
+  // Button Gradient Decorations
+  static BoxDecoration get editProfileButton => BoxDecoration(
+    gradient: LivTheme.editProfileGradient,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: LivTheme.primaryPink.withOpacity(0.3),
+        blurRadius: 15,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
+
+  static BoxDecoration get avatarManagerButton => BoxDecoration(
+    gradient: LivTheme.avatarManagerGradient,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: LivTheme.secondaryPurple.withOpacity(0.3),
+        blurRadius: 15,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
+
+  static BoxDecoration get logoutButton => BoxDecoration(
+    gradient: LivTheme.logoutGradient,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: LivTheme.accentRed.withOpacity(0.3),
+        blurRadius: 15,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
+
+  static BoxDecoration get saveAvatarButton => BoxDecoration(
+    gradient: LivTheme.saveAvatarGradient,
+    borderRadius: BorderRadius.circular(16),
+    boxShadow: [
+      BoxShadow(
+        color: LivTheme.accentBlue.withOpacity(0.3),
+        blurRadius: 15,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
+
+  // Dialog Decorations
+  static BoxDecoration get dialogDecoration => BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(24),
+    border: Border.all(
+      color: Colors.grey.withOpacity(0.3),
+      width: 1.5,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.2),
+        blurRadius: 25,
+        offset: const Offset(0, 8),
+        spreadRadius: 0,
+      ),
+    ],
+  );
+
+  // Input Field Decorations
+  static BoxDecoration get glassmorphicInput => BoxDecoration(
+    color: LivTheme.glassmorphicLightBackground,
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(
+      color: LivTheme.glassmorphicLightBorder,
+      width: 1,
+    ),
+  );
+
+  // Avatar Decorations
+  static BoxDecoration get avatarContainer => BoxDecoration(
+    color: LivTheme.glassmorphicLightBorder,
+    shape: BoxShape.circle,
+    border: Border.all(
+      color: LivTheme.glassmorphicBorder,
+      width: 1,
+    ),
+  );
+
+  static BoxDecoration get cameraIconContainer => BoxDecoration(
+    color: Colors.white.withOpacity(0.9),
+    shape: BoxShape.circle,
+    border: Border.all(
+      color: Colors.white.withOpacity(0.5),
+      width: 1,
+    ),
+  );
 }
 
 /// LIV App Spacing
@@ -529,6 +809,171 @@ class LivButtonStyles {
     textStyle: GoogleFonts.roboto(
       fontSize: 16,
       fontWeight: FontWeight.w600,
+    ),
+  );
+
+  // Glassmorphic Button Styles
+  static ButtonStyle get glassmorphicEditProfileButton => ElevatedButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+      letterSpacing: 0.5,
+    ),
+  );
+
+  static ButtonStyle get glassmorphicAvatarManagerButton => ElevatedButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+      letterSpacing: 0.5,
+    ),
+  );
+
+  static ButtonStyle get glassmorphicLogoutButton => ElevatedButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+      letterSpacing: 0.5,
+    ),
+  );
+
+  static ButtonStyle get glassmorphicSaveButton => ElevatedButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+      color: Colors.white,
+      letterSpacing: 0.5,
+    ),
+  );
+
+  // Dialog Button Styles
+  static ButtonStyle get dialogCancelButton => TextButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.black54,
+    ),
+  );
+
+  static ButtonStyle get dialogLogoutButton => ElevatedButton.styleFrom(
+    backgroundColor: Colors.transparent,
+    shadowColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+    ),
+    textStyle: GoogleFonts.roboto(
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+      color: Colors.white,
+    ),
+  );
+}
+
+/// LIV App Input Field Styles
+class LivInputStyles {
+  // Glassmorphic Input Decoration
+  static InputDecoration getGlassmorphicInputDecoration({
+    String? labelText,
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+  }) => InputDecoration(
+    filled: true,
+    fillColor: LivTheme.glassmorphicLightBackground,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: LivTheme.glassmorphicLightBorder),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: LivTheme.glassmorphicLightBorder),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: Colors.black87, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: LivTheme.accentRed),
+    ),
+    labelText: labelText,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    suffixIcon: suffixIcon,
+    labelStyle: const TextStyle(color: Colors.black87),
+    hintStyle: const TextStyle(color: Colors.black54),
+    prefixIconColor: Colors.black87,
+  );
+
+  // Standard Input Decoration
+  static InputDecoration getStandardInputDecoration({
+    String? labelText,
+    String? hintText,
+    Widget? prefixIcon,
+  }) => InputDecoration(
+    filled: true,
+    fillColor: Colors.grey[50],
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey[300]!),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.grey[300]!),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: LivTheme.primaryPink, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: LivTheme.accentRed),
+    ),
+    labelText: labelText,
+    hintText: hintText,
+    prefixIcon: prefixIcon,
+    labelStyle: GoogleFonts.roboto(
+      color: LivTheme.textTertiary,
+      fontSize: 14,
+    ),
+    hintStyle: GoogleFonts.roboto(
+      color: LivTheme.textTertiary,
+      fontSize: 14,
     ),
   );
 }

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'avatar_creator_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
+import '../theme/liv_theme.dart';
 
 class AvatarManagementScreen extends StatefulWidget {
   const AvatarManagementScreen({super.key});
@@ -78,13 +79,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-            ),
-          ),
+          decoration: LivDecorations.mainAppBackground,
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -111,13 +106,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-          ),
-        ),
+        decoration: LivDecorations.mainAppBackground,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -199,9 +188,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
                       height: iconSize * 2.2,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: hasValidAvatar ? null : const LinearGradient(
-                          colors: [Color(0xFF42A5F5), Color(0xFFE91E63)],
-                        ),
+                        gradient: hasValidAvatar ? null : LivTheme.mainAppGradient,
                         border: hasValidAvatar 
                             ? Border.all(color: Colors.grey.withOpacity(0.3), width: 3) 
                             : Border.all(color: Colors.white.withOpacity(0.2), width: 2),

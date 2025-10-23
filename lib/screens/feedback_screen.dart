@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../theme/liv_theme.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -91,24 +92,18 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('Feedback'),
-        backgroundColor: const Color(0xFF667eea),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: LivDecorations.mainAppBackground,
+        ),
       ),
       body: AnimatedBuilder(
         animation: _backgroundTint,
         builder: (context, child) {
           return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  _backgroundTint.value ?? const Color(0xFF667eea),
-                  const Color(0xFF764ba2),
-                ],
-              ),
-            ),
+            decoration: LivDecorations.gradientDecoration,
             child: SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
