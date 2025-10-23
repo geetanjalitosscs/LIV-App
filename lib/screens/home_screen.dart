@@ -695,9 +695,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final borderRadius = isSmallScreen ? 12.0 : 16.0;
     final iconBorderRadius = isSmallScreen ? 6.0 : 8.0;
     
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         padding: EdgeInsets.all(cardPadding),
         decoration: BoxDecoration(
           color: LivTheme.glassmorphicBackground,
@@ -774,6 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    ),
     );
   }
   

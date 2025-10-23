@@ -288,10 +288,12 @@ class _LoginScreenState extends State<LoginScreen>
                                                   child: Row(
                                                     children: [
                                                       Expanded(
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            if (!_isLoginMode) _toggleMode();
-                                                          },
+                                                        child: MouseRegion(
+                                                          cursor: SystemMouseCursors.click,
+                                                          child: GestureDetector(
+                                                            onTap: () {
+                                                              if (!_isLoginMode) _toggleMode();
+                                                            },
                                                           child: AnimatedContainer(
                                                             duration: const Duration(milliseconds: 300),
                                                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -320,11 +322,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                           ),
                                                         ),
                                                       ),
+                                                      ),
                                                       Expanded(
-                                                        child: GestureDetector(
-                                                          onTap: () {
-                                                            if (_isLoginMode) _toggleMode();
-                                                          },
+                                                        child: MouseRegion(
+                                                          cursor: SystemMouseCursors.click,
+                                                          child: GestureDetector(
+                                                            onTap: () {
+                                                              if (_isLoginMode) _toggleMode();
+                                                            },
                                                           child: AnimatedContainer(
                                                             duration: const Duration(milliseconds: 300),
                                                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -352,6 +357,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                             ),
                                                           ),
                                                         ),
+                                                      ),
                                                       ),
                                                     ],
                                                   ),
@@ -387,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                   suffixIcon: IconButton(
                                                     icon: Icon(
                                                       _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                                      color: LivTheme.neutralGrey600,
+                                                      color: Colors.black,
                                                     ),
                                                     onPressed: () {
                                                       setState(() {
@@ -417,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                                        color: LivTheme.neutralGrey600,
+                                                        color: Colors.black,
                                                       ),
                                                       onPressed: () {
                                                         setState(() {

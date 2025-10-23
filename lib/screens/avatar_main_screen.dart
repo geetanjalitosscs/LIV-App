@@ -75,12 +75,6 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
               await _loadAllAvatars();
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-          ),
         ],
       ),
       body: Container(
@@ -390,8 +384,10 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                           margin: const EdgeInsets.only(right: 12),
                           child: Column(
                             children: [
-                              GestureDetector(
-                                onTap: () async {
+                              MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () async {
                                   final result = await Navigator.push<bool>(
                                     context,
                                     MaterialPageRoute(
@@ -426,6 +422,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                                     fit: BoxFit.cover,
                                   ),
                                 ),
+                              ),
                               ),
                               const SizedBox(height: 8),
                               Text(
