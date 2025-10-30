@@ -3,12 +3,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-class Avatar2DService {
-  static final Avatar2DService _instance = Avatar2DService._internal();
-  factory Avatar2DService() => _instance;
-  Avatar2DService._internal();
+class Avtar2DService {
+  static final Avtar2DService _instance = Avtar2DService._internal();
+  factory Avtar2DService() => _instance;
+  Avtar2DService._internal();
 
-  static Avatar2DService get instance => _instance;
+  static Avtar2DService get instance => _instance;
 
   /// Generate a 2D avatar image based on specifications
   Future<Uint8List?> generateAvatarImage({

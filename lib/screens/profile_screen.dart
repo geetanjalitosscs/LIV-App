@@ -1,18 +1,21 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../config/paths.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
 import '../widgets/profile_image_dialog.dart';
-import '../services/avatar_generator_service.dart';
+import '../services/avtar_generator_service.dart';
 import '../services/auth_service.dart';
-import '../services/avatar_service.dart';
+import '../services/avtar_service.dart';
 import '../theme/liv_theme.dart';
 import 'edit_profile_screen.dart';
-import 'avatar_main_screen.dart';
-import 'avatar_creator_screen.dart';
-import 'avatar_generation_screen.dart';
+import 'avtar_main_screen.dart';
+import 'avtar_creator_screen.dart';
+import 'avtar_generation_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onBackPressed;
@@ -107,14 +110,24 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
   // Helper method to get the appropriate profile image
   ImageProvider _getProfileImage(UserService userService) {
-    if (_readyPlayerMeAvatarPath != null) {
+    // First check if user has a selected avatar from UserService
+    if (userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()) {
+      return FileImage(File(userService.selectedAvatar!));
+    }
+    // Then check Ready Player Me avatar
+    else if (_readyPlayerMeAvatarPath != null) {
       return FileImage(File(_readyPlayerMeAvatarPath!));
-    } else if (_generatedAvatarBytes != null) {
+    } 
+    // Then check generated avatar bytes
+    else if (_generatedAvatarBytes != null) {
       return MemoryImage(_generatedAvatarBytes!);
-    } else if (_selectedImageBytes != null) {
+    } 
+    // Then check selected image bytes
+    else if (_selectedImageBytes != null) {
       return MemoryImage(_selectedImageBytes!);
-    } else {
-      // Use a default placeholder since we're removing local avatars
+    } 
+    // Finally use default placeholder
+    else {
       return const AssetImage('assets/images/pngtree-google.png');
     }
   }
@@ -137,7 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
               ),
               ListTile(
                 leading: const Icon(Icons.person_outline),
-                title: const Text('Create 3D Avatar'),
+                title: const Text('Create 3D Avtar'),
                 onTap: () {
                   Navigator.of(context).pop();
                   _navigateToReadyPlayerMe();
@@ -162,14 +175,56 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       
       if (pickedFile != null) {
         final Uint8List imageBytes = await pickedFile.readAsBytes();
+        
+        // Save the image to uploads folder (same as 3D avatars)
+        const String uploadsPath = AppPaths.windowsUploads;
+        final Directory uploadsDir = Directory(uploadsPath);
+        if (!uploadsDir.existsSync()) {
+          await uploadsDir.create(recursive: true);
+        }
+        
+        final String fileName = 'gallery_${DateTime.now().millisecondsSinceEpoch}.png';
+        final String filePath = '$uploadsPath\\$fileName';
+        final File imageFile = File(filePath);
+        await imageFile.writeAsBytes(imageBytes);
+        
+        // Update the user service with the new avatar (this handles SharedPreferences)
+        final userService = Provider.of<UserService>(context, listen: false);
+        userService.selectAvatar(filePath);
+        
         setState(() {
           _selectedImageBytes = imageBytes;
           _generatedAvatarBytes = null;
+          _readyPlayerMeAvatarPath = null; // Clear Ready Player Me avatar
         });
+        
+        _showSuccessSnackBar('Profile image updated successfully!');
       }
     } catch (e) {
       _showErrorSnackBar('Failed to pick image from gallery');
     }
+  }
+
+  // Show success snackbar
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // Show error snackbar
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // Pick image from camera
@@ -210,7 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _selectedImageBytes = null; // Clear selected image when using generated avatar
         _readyPlayerMeAvatarPath = null; // Clear Ready Player Me avatar
       });
-      _showSuccessSnackBar('Avatar updated successfully!');
+      _showSuccessSnackBar('Avtar updated successfully!');
     }
   }
 
@@ -233,7 +288,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _generatedAvatarBytes = null; // Clear AI generated avatar
         _selectedImageBytes = null; // Clear selected image
       });
-      _showSuccessSnackBar('3D Avatar updated successfully!');
+      _showSuccessSnackBar('3D Avtar updated successfully!');
     } else {
       // Even if result is false, refresh to ensure consistency
       print('Profile screen: No avatar update, but refreshing anyway...');
@@ -244,16 +299,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   // Legacy method - kept for compatibility but redirects to new system
   Future<void> _generateAvatar(bool is3D) async {
     await _navigateToAvatarGeneration();
-  }
-
-  // Show error snackbar
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
 
   // Show logout confirmation dialog
@@ -381,16 +426,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
-  // Show success snackbar
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -400,18 +435,20 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         flexibleSpace: Container(
         decoration: LivDecorations.mainAppBackground,
         ),
-        leading: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () {
-              // Use callback to navigate to home tab, or fallback to pop
-              if (widget.onBackPressed != null) {
-                widget.onBackPressed!();
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
+        leading: Builder(
+          builder: (context) => MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () {
+                // Use callback to navigate to home tab, or fallback to pop
+                if (widget.onBackPressed != null) {
+                  widget.onBackPressed!();
+                } else {
+                  Navigator.of(context).pop();
+                }
+              },
+            ),
           ),
         ),
         title: const Text(
@@ -444,7 +481,38 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(24),
-                      decoration: LivDecorations.glassmorphicCard,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.white.withOpacity(0.1),
+                            Colors.white.withOpacity(0.05),
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                        image: userService.backgroundImage != null && File(userService.backgroundImage!).existsSync()
+                            ? DecorationImage(
+                                image: FileImage(File(userService.backgroundImage!)),
+                                fit: BoxFit.cover,
+                                opacity: 0.3,
+                              )
+                            : null,
+                        color: userService.backgroundImage == null 
+                            ? Color(userService.backgroundColor).withOpacity(0.2)
+                            : null,
+                      ),
                       child: Column(
                         children: [
                           // Profile Header
@@ -464,8 +532,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       _navigateToReadyPlayerMe();
                                       break;
                                     case 'view':
-                                      final avatarPath = await AvatarService.getAvatarImagePath();
-                                      FullScreenAvatarViewer.show(context, imagePath: avatarPath);
+                                      // Get the current profile image path using the same logic as _getProfileImage
+                                      String? currentImagePath;
+                                      if (userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()) {
+                                        currentImagePath = userService.selectedAvatar;
+                                      } else if (_readyPlayerMeAvatarPath != null) {
+                                        currentImagePath = _readyPlayerMeAvatarPath;
+                                      } else {
+                                        // Fallback to AvatarService for Ready Player Me avatars
+                                        currentImagePath = await AvatarService.getAvatarImagePath();
+                                      }
+                                      FullScreenAvatarViewer.show(context, imagePath: currentImagePath);
                                       break;
                                   }
                                 }
@@ -597,7 +674,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     child: ElevatedButton.icon(
                                       onPressed: _navigateToReadyPlayerMe,
                                       icon: const Icon(Icons.person_outline, color: Colors.white),
-                                      label: const Text('Avatar Manager', style: TextStyle(color: Colors.white, fontSize: 14)),
+                                      label: const Text('Avtar Manager', style: TextStyle(color: Colors.white, fontSize: 14)),
                                       style: LivButtonStyles.glassmorphicAvatarManagerButton,
                                     ),
                                   ),

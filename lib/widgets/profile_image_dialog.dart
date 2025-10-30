@@ -63,8 +63,8 @@ class ProfileImageDialog extends StatelessWidget {
               _buildOption(
                 context,
                 icon: Icons.person_outline,
-                title: 'Create 3D Avatar',
-                subtitle: 'Generate a custom avatar',
+                title: 'Create 3D Avtar',
+                subtitle: 'Generate a custom avtar',
                 onTap: () {
                   Navigator.of(context).pop('avatar');
                 },
@@ -76,7 +76,7 @@ class ProfileImageDialog extends StatelessWidget {
                 context,
                 icon: Icons.visibility_outlined,
                 title: 'View Profile',
-                subtitle: 'View your current avatar',
+                subtitle: 'View your current avtar',
                 onTap: () {
                   Navigator.of(context).pop('view');
                 },

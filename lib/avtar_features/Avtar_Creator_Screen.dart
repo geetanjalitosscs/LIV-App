@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../config/paths.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -9,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import '../services/user_service.dart';
 
 // Custom dialog functions
 Future<void> _showErrorDialog(BuildContext context) async {
@@ -48,7 +51,7 @@ Future<void> _showErrorDialog(BuildContext context) async {
           ],
         ),
         content: const Text(
-          'Please click Save before selecting Next. Your avatar won\'t be saved otherwise. Go back and come again.',
+          'Please click Save before selecting Next. Your avtar won\'t be saved otherwise. Go back and come again.',
           style: TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -117,7 +120,7 @@ Future<void> _showSuccessDialog(BuildContext context) async {
           ],
         ),
         content: const Text(
-          'Your avatar is saved.',
+          'Your avtar is saved.',
           style: TextStyle(
             color: Colors.white,
             fontSize: 16,
@@ -151,16 +154,16 @@ Future<void> _showSuccessDialog(BuildContext context) async {
   );
 }
 
-class AvatarCreatorScreen extends StatefulWidget {
-  const AvatarCreatorScreen({super.key, this.initialAvatarId});
+class AvtarCreatorScreen extends StatefulWidget {
+  const AvtarCreatorScreen({super.key, this.initialAvatarId});
 
   final String? initialAvatarId;
 
   @override
-  State<AvatarCreatorScreen> createState() => _AvatarCreatorScreenState();
+  State<AvtarCreatorScreen> createState() => _AvtarCreatorScreenState();
 }
 
-class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
+class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
   late final WebViewController controller;
   winwv.WebviewController? _windowsController;
   StreamSubscription<dynamic>? _windowsMessageSub;
@@ -379,7 +382,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
       Directory uploads;
       if (Platform.isWindows) {
         // Save to requested absolute directory on Windows
-        uploads = Directory(r'C:\xampp\htdocs\Liv-App\Uploads');
+        uploads = Directory(AppPaths.windowsUploads);
       } else {
         final dir = await getApplicationDocumentsDirectory();
         uploads = Directory('${dir.path}/uploads');
@@ -422,7 +425,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save avatar: $e')),
+        SnackBar(content: Text('Failed to save avtar: $e')),
       );
     }
   }
@@ -726,7 +729,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           title: const Text(
-            'Create Avatar',
+            'Create Avtar',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
           ),
           actions: actions,
@@ -754,7 +757,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: const Text(
-          'Create Avatar',
+          'Create Avtar',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         actions: actions,
@@ -797,7 +800,7 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
       Directory uploads;
       if (!kIsWeb && Platform.isWindows) {
         // Save to requested absolute directory on Windows
-        uploads = Directory(r'C:\xampp\htdocs\Liv-App\Uploads');
+        uploads = Directory(AppPaths.windowsUploads);
       } else {
         final dir = await getApplicationDocumentsDirectory();
         uploads = Directory('${dir.path}/uploads');
@@ -828,6 +831,12 @@ class _AvatarCreatorScreenState extends State<AvatarCreatorScreen> {
       await prefs.setString('lastAvatarGlbPath', glbPath);
       if (pngPath != null) {
         await prefs.setString('lastAvatarPngPath', pngPath);
+      }
+
+      // Update UserService to set this as the selected avatar
+      if (pngPath != null && mounted) {
+        final userService = Provider.of<UserService>(context, listen: false);
+        userService.selectAvatar(pngPath);
       }
 
       if (!mounted) return;

@@ -1,8 +1,9 @@
 import 'dart:io' show Platform;
+import '../config/paths.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'Avatar_Creator_Screen.dart';
+import 'Avtar_Creator_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
@@ -154,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (openInApp) {
                           final result = await Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const AvatarCreatorScreen()),
+                            MaterialPageRoute(builder: (context) => const AvtarCreatorScreen()),
                           );
                           if (result == true && mounted) {
                             setState(() {
@@ -188,7 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
 Future<Map<String, String?>> _loadSavedAvatar() async {
   try {
     // Scan the uploads folder for the most recent avatar
-    final windowsUploads = r'C:\xampp\htdocs\Avtar\Uploads';
+    final windowsUploads = AppPaths.windowsUploads;
     final uploadsDir = Directory(windowsUploads);
     
     if (!uploadsDir.existsSync()) {

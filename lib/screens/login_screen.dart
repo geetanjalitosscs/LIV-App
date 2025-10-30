@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../theme/liv_theme.dart';
 
@@ -20,12 +21,20 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<double> _backgroundOpacity;
   
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  // Existing controllers (shared before, now specific for each mode)
+  final _signInEmailController = TextEditingController();
+  final _signInPasswordController = TextEditingController();
+  final _signUpFullNameController = TextEditingController();
+  final _signUpPhoneController = TextEditingController();
+  final _signUpEmailController = TextEditingController();
+  final _signUpPasswordController = TextEditingController();
+  final _signUpConfirmPasswordController = TextEditingController();
+  final _signUpAgeController = TextEditingController();
+  String? _signUpGender;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoginMode = true;
+  String? _selectedGender;
   
   @override
   void initState() {
@@ -86,16 +95,20 @@ class _LoginScreenState extends State<LoginScreen>
     _logoController.dispose();
     _buttonController.dispose();
     _backgroundController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
+    _signInEmailController.dispose();
+    _signInPasswordController.dispose();
+    _signUpFullNameController.dispose();
+    _signUpPhoneController.dispose();
+    _signUpEmailController.dispose();
+    _signUpPasswordController.dispose();
+    _signUpConfirmPasswordController.dispose();
+    _signUpAgeController.dispose();
     super.dispose();
   }
   
   void _toggleMode() {
     setState(() {
       _isLoginMode = !_isLoginMode;
-      _formKey.currentState?.reset();
     });
   }
 
@@ -107,17 +120,49 @@ class _LoginScreenState extends State<LoginScreen>
     bool obscureText = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
       decoration: LivInputStyles.getGlassmorphicInputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
         suffixIcon: suffixIcon,
       ),
       validator: validator,
+    );
+  }
+
+  // Builds a themed prefix icon for gender field, reacting to selection
+  Widget _buildGenderPrefixIcon() {
+    return _genderIconFor(_selectedGender);
+  }
+
+  // Reusable gender icon widget for menu and field (human silhouettes)
+  Widget _genderIconFor(String? gender) {
+    if (gender == 'Male') {
+      return const Icon(Icons.man, color: Color(0xFF2196F3));
+    }
+    if (gender == 'Female') {
+      return const Icon(Icons.woman, color: Color(0xFFE91E63));
+    }
+    // Other or null → show both icons: male first (blue), then female (pink)
+    return SizedBox(
+      width: 34,
+      height: 22,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.man, color: Color(0xFF2196F3), size: 18),
+          SizedBox(width: 2),
+          Icon(Icons.woman, color: Color(0xFFE91E63), size: 18),
+        ],
+      ),
     );
   }
   
@@ -365,61 +410,145 @@ class _LoginScreenState extends State<LoginScreen>
                                                 
                                                 const SizedBox(height: 32),
                                                 
-                                                // Email Field
-                                                _buildInputField(
-                                                  controller: _emailController,
-                                                  label: 'Email',
-                                                  icon: Icons.email_outlined,
-                                                  keyboardType: TextInputType.emailAddress,
-                                                  validator: (value) {
-                                                    if (value == null || value.isEmpty) {
-                                                      return 'Please enter email';
-                                                    }
-                                                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                                                      return 'Please enter a valid email';
-                                                    }
-                                                    return null;
-                                                  },
-                                                ),
-                                                
-                                                const SizedBox(height: 20),
-                                                
-                                                // Password Field
-                                                _buildInputField(
-                                                  controller: _passwordController,
-                                                  label: 'Password',
-                                                  icon: Icons.lock_outline,
-                                                  obscureText: _obscurePassword,
-                                                  suffixIcon: IconButton(
-                                                    icon: Icon(
-                                                      _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                                      color: Colors.black,
-                                                    ),
-                                                    onPressed: () {
-                                                      setState(() {
-                                                        _obscurePassword = !_obscurePassword;
-                                                      });
+                                                // Form fields
+                                                if (_isLoginMode) ...[
+                                                  _buildInputField(
+                                                    controller: _signInEmailController,
+                                                    label: 'Email',
+                                                    icon: Icons.email_outlined,
+                                                    keyboardType: TextInputType.emailAddress,
+                                                    validator: (value) {
+                                                      if (value == null || value.isEmpty) {
+                                                        return 'Please enter email';
+                                                      }
+                                                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                                        return 'Please enter a valid email';
+                                                      }
+                                                      return null;
                                                     },
                                                   ),
-                                                  validator: (value) {
-                                                    if (value == null || value.isEmpty) {
-                                                      return 'Please enter password';
-                                                    }
-                                                    if (value.length < 6) {
-                                                      return 'Password must be at least 6 characters';
-                                                    }
-                                                    return null;
-                                                  },
-                                                ),
-                                                
-                                                // Confirm Password Field (only for registration)
-                                                if (!_isLoginMode) ...[
                                                   const SizedBox(height: 20),
                                                   _buildInputField(
-                                                    controller: _confirmPasswordController,
+                                                    controller: _signInPasswordController,
+                                                    label: 'Password',
+                                                    icon: Icons.lock_outline,
+                                                    obscureText: _obscurePassword,
+                                                    keyboardType: TextInputType.visiblePassword,
+                                                    suffixIcon: IconButton(
+                                                      icon: Icon(
+                                                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                                        color: Colors.black,
+                                                      ),
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          _obscurePassword = !_obscurePassword;
+                                                        });
+                                                      },
+                                                    ),
+                                                    validator: (value) {
+                                                      if (value == null || value.isEmpty) {
+                                                        return 'Please enter password';
+                                                      }
+                                                      if (value.length < 6) {
+                                                        return 'Password must be at least 6 characters';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                ],
+                                                if (!_isLoginMode) ...[
+                                                  const SizedBox(height: 32),
+                                                  _buildInputField(
+                                                    controller: _signUpFullNameController,
+                                                    label: 'Full Name',
+                                                    icon: Icons.person_outline,
+                                                    textCapitalization: TextCapitalization.words,
+                                                    validator: (value) {
+                                                      if (value == null || value.trim().isEmpty) {
+                                                        return 'Please enter your full name';
+                                                      }
+                                                      final name = value.trim();
+                                                      if (RegExp(r"[0-9]").hasMatch(name)) {
+                                                        return 'Name should not contain numbers';
+                                                      }
+                                                      if (name.length < 3) {
+                                                        return 'Name must be at least 3 characters';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpEmailController,
+                                                    label: 'Email',
+                                                    icon: Icons.email_outlined,
+                                                    keyboardType: TextInputType.emailAddress,
+                                                    validator: (value) {
+                                                      if (value == null || value.isEmpty) {
+                                                        return 'Please enter email';
+                                                      }
+                                                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                                                        return 'Please enter a valid email';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpPhoneController,
+                                                    label: 'Phone Number',
+                                                    icon: Icons.phone_outlined,
+                                                    keyboardType: TextInputType.phone,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.digitsOnly,
+                                                      LengthLimitingTextInputFormatter(10),
+                                                    ],
+                                                    validator: (value) {
+                                                      if (value == null || value.trim().isEmpty) {
+                                                        return 'Please enter phone number';
+                                                      }
+                                                     final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+                                                     if (!RegExp(r'^[6-9][0-9]{9}$').hasMatch(digits)) {
+                                                        return 'Enter a valid number (starts 6-9, 10 digits)';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpPasswordController,
+                                                    label: 'Password',
+                                                    icon: Icons.lock_outline,
+                                                    obscureText: _obscurePassword,
+                                                    keyboardType: TextInputType.visiblePassword,
+                                                    suffixIcon: IconButton(
+                                                      icon: Icon(
+                                                        _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                                        color: Colors.black,
+                                                      ),
+                                                      onPressed: () {
+                                                        setState(() {
+                                                          _obscurePassword = !_obscurePassword;
+                                                        });
+                                                      },
+                                                    ),
+                                                    validator: (value) {
+                                                      if (value == null || value.isEmpty) {
+                                                        return 'Please enter password';
+                                                      }
+                                                      if (value.length < 6) {
+                                                        return 'Password must be at least 6 characters';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpConfirmPasswordController,
                                                     label: 'Confirm Password',
                                                     icon: Icons.lock_outline,
                                                     obscureText: _obscureConfirmPassword,
+                                                    keyboardType: TextInputType.visiblePassword,
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -435,8 +564,55 @@ class _LoginScreenState extends State<LoginScreen>
                                                       if (value == null || value.isEmpty) {
                                                         return 'Please confirm password';
                                                       }
-                                                      if (value != _passwordController.text) {
-                                                        return 'Passwords do not match';
+                                                      if (value != _signUpPasswordController.text) {
+                                                        return 'Passwords does not matched';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  DropdownButtonFormField<String>(
+                                                    value: _signUpGender,
+                                                    decoration: LivInputStyles.getGlassmorphicInputDecoration(
+                                                      labelText: 'Gender',
+                                                      prefixIcon: _buildGenderPrefixIcon(),
+                                                    ),
+                                                    icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+                                                    dropdownColor: Colors.white,
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    items: const [
+                                                      DropdownMenuItem(value: 'Male', child: Text('Male')),
+                                                      DropdownMenuItem(value: 'Female', child: Text('Female')),
+                                                      DropdownMenuItem(value: 'Other', child: Text('Other')),
+                                                    ],
+                                                    onChanged: (val) => setState(() => _signUpGender = val),
+                                                    validator: (value) {
+                                                      if (value == null || value.isEmpty) {
+                                                        return 'Please select gender';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpAgeController,
+                                                    label: 'Age',
+                                                    icon: Icons.cake_outlined,
+                                                    keyboardType: TextInputType.number,
+                                                    inputFormatters: [
+                                                      FilteringTextInputFormatter.digitsOnly,
+                                                      LengthLimitingTextInputFormatter(2),
+                                                    ],
+                                                    validator: (value) {
+                                                      if (value == null || value.trim().isEmpty) {
+                                                        return 'Please enter age';
+                                                      }
+                                                      final age = int.tryParse(value.trim());
+                                                      if (age == null) {
+                                                        return 'Age must be a number';
+                                                      }
+                                                      if (age < 18 || age > 99) {
+                                                        return 'Enter age (18-99)';
                                                       }
                                                       return null;
                                                     },
@@ -619,13 +795,13 @@ class _LoginScreenState extends State<LoginScreen>
       
       if (_isLoginMode) {
         success = await authService.signInWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
+          _signInEmailController.text.trim(),
+          _signInPasswordController.text.trim(),
         );
       } else {
         success = await authService.createUserWithEmailAndPassword(
-          _emailController.text.trim(),
-          _passwordController.text.trim(),
+          _signUpEmailController.text.trim(),
+          _signUpPasswordController.text.trim(),
         );
       }
       

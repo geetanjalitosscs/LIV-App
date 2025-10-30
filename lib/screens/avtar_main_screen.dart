@@ -1,12 +1,15 @@
+import '../config/paths.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../avatar_features/Avatar_Creator_Screen.dart';
+import 'package:provider/provider.dart';
+import '../avtar_features/Avtar_Creator_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
-import '../services/avatar_service.dart';
+import '../services/avtar_service.dart';
+import '../services/user_service.dart';
 import '../theme/liv_theme.dart';
 
 class AvatarMainScreen extends StatefulWidget {
@@ -61,8 +64,8 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text(
-          'Avatar Creator',
+          title: const Text(
+          'Avtar Creator',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         actions: [
@@ -94,54 +97,66 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        FutureBuilder<Map<String, String?>> (
-                          future: _avatarFuture,
-                          builder: (context, snapshot) {
-                            final pngPath = snapshot.data?['png'];
-                            final bool hasValidAvatar = pngPath != null && File(pngPath).existsSync();
-                            
-                            return MouseRegion(
-                              cursor: hasValidAvatar ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                              child: GestureDetector(
-                                onTap: () async {
-                                  if (hasValidAvatar) {
-                                    final result = await Navigator.push<bool>(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => FullScreenAvatarView(imagePath: pngPath!),
+                        Consumer<UserService>(
+                          builder: (context, userService, child) {
+                            return FutureBuilder<Map<String, String?>> (
+                              future: _avatarFuture,
+                              builder: (context, snapshot) {
+                                final pngPath = snapshot.data?['png'];
+                                final bool hasValidAvatar = pngPath != null && File(pngPath).existsSync();
+                                
+                                // Check if user has selected a gallery image
+                                final bool hasGalleryImage = userService.selectedAvatar != null && 
+                                    File(userService.selectedAvatar!).existsSync();
+                                
+                                // Show the selected avatar (either 3D avatar or gallery image)
+                                final bool shouldShowAvatar = hasValidAvatar || hasGalleryImage;
+                                final String? displayImagePath = hasGalleryImage ? userService.selectedAvatar : pngPath;
+                                
+                                return MouseRegion(
+                                  cursor: shouldShowAvatar ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                                  child: GestureDetector(
+                                    onTap: () async {
+                                      if (shouldShowAvatar) {
+                                        final result = await Navigator.push<bool>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => FullScreenAvatarView(imagePath: displayImagePath!),
+                                          ),
+                                        );
+                                        if (result == true) {
+                                          // Refresh the avatar data
+                                          setState(() {
+                                            _avatarFuture = _loadSavedAvatar();
+                                          });
+                                        }
+                                      }
+                                    },
+                                    child: Container(
+                                      width: iconSize * 1.8,
+                                      height: iconSize * 1.8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: shouldShowAvatar ? null : LivTheme.mainAppGradient,
+                                        border: shouldShowAvatar ? Border.all(color: Colors.white.withOpacity(0.3), width: 3) : null,
                                       ),
-                                    );
-                                    if (result == true) {
-                                      // Refresh the avatar data
-                                      setState(() {
-                                        _avatarFuture = _loadSavedAvatar();
-                                      });
-                                    }
-                                  }
-                                },
-                                child: Container(
-                                  width: iconSize * 1.8,
-                                  height: iconSize * 1.8,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: hasValidAvatar ? null : LivTheme.mainAppGradient,
-                                    border: hasValidAvatar ? Border.all(color: Colors.white.withOpacity(0.3), width: 3) : null,
+                                      clipBehavior: Clip.antiAlias,
+                                      child: shouldShowAvatar
+                                          ? Image.file(
+                                              File(displayImagePath!),
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Icon(Icons.person, color: Colors.white, size: iconSize),
+                                    ),
                                   ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: hasValidAvatar
-                                      ? Image.file(
-                                          File(pngPath),
-                                          fit: BoxFit.cover,
-                                        )
-                                      : Icon(Icons.person, color: Colors.white, size: iconSize),
-                                ),
-                              ),
+                                );
+                              },
                             );
                           },
                         ),
                         SizedBox(height: cardWidth * 0.06),
                         Text(
-                          'Create Your 3D Avatar',
+                          'Create Your 3D Avtar',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: titleFont,
@@ -151,7 +166,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                         ),
                         SizedBox(height: cardWidth * 0.02),
                         Text(
-                          'Build a personalized 3D avatar',
+                          'Build a personalized 3D avtar',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: bodyFont,
@@ -186,9 +201,16 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                               if (openInApp) {
                                 final result = await Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (context) => const AvatarCreatorScreen()),
+                                  MaterialPageRoute(builder: (context) => const AvtarCreatorScreen()),
                                 );
                                        if (result == true && mounted) {
+                                         // Set the newly created avatar as profile avatar
+                                         final userService = Provider.of<UserService>(context, listen: false);
+                                         final newAvatarData = await _loadSavedAvatar();
+                                         if (newAvatarData['png'] != null) {
+                                           userService.selectAvatar(newAvatarData['png']!);
+                                         }
+                                         
                                          setState(() {
                                            _avatarFuture = _loadSavedAvatar();
                                          });
@@ -208,7 +230,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               elevation: 0,
                             ),
-                            child: const Text('Create Avatar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                            child: const Text('Create Avtar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                           ),
                             ),
                         ),
@@ -233,7 +255,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: LivDecorations.glassmorphicUltraLightCard,
                      child: Text(
-                       'No other avatars found. Create more avatars to see them here!',
+                       'No other avtars found. Create more avtars to see them here!',
                        style: TextStyle(
                          color: Colors.white.withOpacity(0.75),
                          fontSize: 16,
@@ -252,7 +274,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
 
   Future<void> _loadAllAvatars() async {
     try {
-      final windowsUploads = r'C:\xampp\htdocs\Liv-App\Uploads';
+      final windowsUploads = AppPaths.windowsUploads;
       final uploadsDir = Directory(windowsUploads);
       
       print('Loading avatars from: $windowsUploads');
@@ -276,6 +298,11 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
       } catch (e) {
         print('Error getting current avatar: $e');
       }
+      
+      // Check if user has selected a gallery image
+      final userService = Provider.of<UserService>(context, listen: false);
+      final bool hasGalleryImage = userService.selectedAvatar != null && 
+          File(userService.selectedAvatar!).existsSync();
       
       final pngFiles = uploadsDir
           .listSync()
@@ -303,12 +330,14 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           };
         }).toList();
         
-        // Filter out the currently selected profile avatar
+        // Filter out the currently selected profile avatar only if no gallery image is selected
         final filteredAvatars = avatarList.where((avatar) {
-          return avatar['id'] != currentAvatarId;
+          // If gallery image is selected, include all avatars in the gallery
+          // If no gallery image is selected, exclude the current profile avatar
+          return hasGalleryImage || avatar['id'] != currentAvatarId;
         }).toList();
         
-        print('Setting ${filteredAvatars.length} avatars (excluding current profile avatar)');
+        print('Setting ${filteredAvatars.length} avatars (${hasGalleryImage ? 'including' : 'excluding'} current profile avatar)');
         setState(() {
           _allAvatars = filteredAvatars;
         });
@@ -336,7 +365,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
                  Text(
-                   'Your Other Avatars',
+                   'Your Other Avtars',
                    style: TextStyle(
                      fontSize: 20,
                      fontWeight: FontWeight.w700,
@@ -388,20 +417,36 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                                 cursor: SystemMouseCursors.click,
                                 child: GestureDetector(
                                   onTap: () async {
-                                  final result = await Navigator.push<bool>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => FullScreenAvatarView(imagePath: avatar['png']!),
-                                    ),
-                                  );
-                                  if (result == true) {
-                                    // Refresh the avatar data
-                                    setState(() {
-                                      _avatarFuture = _loadSavedAvatar();
-                                    });
-                                    await _loadAllAvatars(); // Also refresh the gallery
-                                  }
-                                },
+                                    // Show full screen view first
+                                    final result = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => FullScreenAvatarView(imagePath: avatar['png']!),
+                                      ),
+                                    );
+                                    
+                                    // If user confirmed selection from full screen
+                                    if (result == true) {
+                                      // Set this avatar as the profile avatar using UserService
+                                      final userService = Provider.of<UserService>(context, listen: false);
+                                      userService.selectAvatar(avatar['png']!);
+                                      
+                                      // Refresh the avatar data
+                                      setState(() {
+                                        _avatarFuture = _loadSavedAvatar();
+                                      });
+                                      await _loadAllAvatars(); // Also refresh the gallery
+                                      
+                                      // Show success message
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Avtar selected as profile picture!'),
+                                          backgroundColor: Colors.green,
+                                          duration: Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  },
                                 child: Container(
                                   width: 80,
                                   height: 80,
@@ -426,7 +471,7 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Avatar ${_allAvatars.length - index}',
+                                'Avtar ${_allAvatars.length - index}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.white.withOpacity(0.75),
@@ -485,27 +530,11 @@ class FullScreenAvatarView extends StatelessWidget {
 
   Future<void> _saveAsProfileAvatar(BuildContext context) async {
     try {
-      // Extract avatar ID from the image path
-      final fileName = imagePath.split('\\').last;
-      final avatarId = fileName.replaceAll('.png', '');
+      print('Setting avatar as profile: $imagePath');
       
-      print('Setting avatar as profile: $avatarId');
-      print('Avatar path: $imagePath');
-      
-      // Update SharedPreferences to set this as the current profile avatar
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastAvatarId', avatarId);
-      await prefs.setString('lastAvatarPngPath', imagePath);
-      
-      // Also update the GLB path if it exists
-      final glbPath = imagePath.replaceAll('.png', '.glb');
-      if (File(glbPath).existsSync()) {
-        await prefs.setString('lastAvatarGlbPath', glbPath);
-        print('GLB path also updated: $glbPath');
-      }
-      
-      // Force a refresh by clearing any cached data
-      await prefs.remove('cachedAvatarData');
+      // Use UserService to set the avatar (this handles all SharedPreferences updates)
+      final userService = Provider.of<UserService>(context, listen: false);
+      userService.selectAvatar(imagePath);
       
       print('Profile avatar updated successfully');
       

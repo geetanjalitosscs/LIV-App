@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/avatar_generator_service.dart';
-import '../services/avatar_2d_service.dart';
+import '../services/avtar_generator_service.dart';
+import '../services/avtar_2d_service.dart';
 import '../theme/liv_theme.dart';
-import 'avatar_3d_viewer_screen.dart';
+import 'avtar_3d_viewer_screen.dart';
 
 extension StringExtension on String {
   String capitalize() {
@@ -21,7 +21,7 @@ class AvatarGenerationScreen extends StatefulWidget {
 
 class _AvatarGenerationScreenState extends State<AvatarGenerationScreen> {
   final AvatarGeneratorService _avatarService = AvatarGeneratorService.instance;
-  final Avatar2DService _avatar2DService = Avatar2DService.instance;
+  final Avtar2DService _avatar2DService = Avtar2DService.instance;
   
   // Avatar specifications
   String _gender = 'male';

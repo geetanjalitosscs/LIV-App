@@ -2,10 +2,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'avatar_creator_screen.dart';
+import 'avtar_creator_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
 import '../theme/liv_theme.dart';
+import '../config/paths.dart';
 
 class AvatarManagementScreen extends StatefulWidget {
   const AvatarManagementScreen({super.key});
@@ -29,7 +30,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
 
   Future<void> _loadAvatarHistory() async {
     try {
-      final windowsUploads = r'C:\xampp\htdocs\Liv-App\Uploads';
+      final windowsUploads = AppPaths.windowsUploads;
       final uploadsDir = Directory(windowsUploads);
       
       if (!uploadsDir.existsSync()) {
@@ -662,7 +663,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
               ListTile(
                 leading: Icon(Icons.storage),
                 title: Text('Storage Location'),
-                subtitle: Text('C:\\xampp\\htdocs\\Liv-App\\Uploads'),
+                subtitle: Text(AppPaths.windowsUploads),
               ),
               ListTile(
                 leading: Icon(Icons.format_list_bulleted),
@@ -733,7 +734,7 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
 Future<Map<String, String?>> _loadSavedAvatar() async {
   try {
     // Scan the uploads folder for the most recent avatar
-    final windowsUploads = r'C:\xampp\htdocs\Liv-App\Uploads';
+    final windowsUploads = AppPaths.windowsUploads;
     final uploadsDir = Directory(windowsUploads);
     
     if (!uploadsDir.existsSync()) {

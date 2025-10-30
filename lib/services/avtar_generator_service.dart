@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'threejs_avatar_service.dart';
+import 'threejs_avtar_service.dart';
 
 class AvatarGeneratorService {
   static final AvatarGeneratorService _instance = AvatarGeneratorService._internal();
@@ -94,7 +94,7 @@ class AvatarGeneratorService {
     required String style,
   }) async {
     try {
-      final threeJSService = ThreeJSAvatarService.instance;
+      final threeJSService = ThreeJSAvtarService.instance;
       // Use the new config-driven builder so web avatar reflects UI-style options
       await threeJSService.initializeAvatarWithConfig({
         'gender': gender,
@@ -129,7 +129,7 @@ class AvatarGeneratorService {
     required String style,
   }) async {
     try {
-      final threeJSService = ThreeJSAvatarService.instance;
+      final threeJSService = ThreeJSAvtarService.instance;
       await threeJSService.initializeAvatarWithConfig({
         'gender': gender,
         'bodyType': bodyType,

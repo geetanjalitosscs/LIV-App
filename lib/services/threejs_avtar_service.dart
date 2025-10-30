@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 /// Platform-aware Three.js Avatar Service
 /// This service provides a stub implementation for non-web platforms
 /// and delegates to web-specific implementation on web platforms
-class ThreeJSAvatarService {
-  static final ThreeJSAvatarService _instance = ThreeJSAvatarService._internal();
-  static ThreeJSAvatarService get instance => _instance;
+class ThreeJSAvtarService {
+  static final ThreeJSAvtarService _instance = ThreeJSAvtarService._internal();
+  static ThreeJSAvtarService get instance => _instance;
   
-  ThreeJSAvatarService._internal();
+  ThreeJSAvtarService._internal();
   
   Map<String, dynamic>? _config;
   

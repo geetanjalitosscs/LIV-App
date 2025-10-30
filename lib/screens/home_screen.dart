@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/theme_service.dart';
-import '../services/avatar_service.dart';
+import '../services/avtar_service.dart';
 import '../theme/liv_theme.dart';
 import '../widgets/bottom_navigation.dart';
 import 'coach_screen.dart';
@@ -40,6 +40,11 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {});
   }
   
+  // Method to refresh the avatar display
+  void refreshAvatar() {
+    setState(() {});
+  }
+  
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
@@ -63,10 +68,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     _currentIndex = 4; // Switch to profile tab
                   });
                 },
-                child: FutureBuilder<String?>(
-                  future: AvatarService.getAvatarImagePath(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
+                child: Consumer<UserService>(
+                  builder: (context, userService, child) {
+                    // First check if user has a selected avatar from UserService
+                    if (userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()) {
                       return Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -74,16 +79,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: CircleAvatar(
                           radius: 18,
-                          backgroundImage: FileImage(File(snapshot.data!)),
+                          backgroundImage: FileImage(File(userService.selectedAvatar!)),
                           onBackgroundImageError: (exception, stackTrace) {
                             // Handle error if needed
                           },
                         ),
                       );
-                    } else {
-                      // Fallback to default avatar
-                      return Consumer<UserService>(
-                        builder: (context, userService, child) {
+                    }
+                    
+                    // Then check Ready Player Me avatars
+                    return FutureBuilder<String?>(
+                      future: AvatarService.getAvatarImagePath(),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: LivTheme.glassmorphicLightBorder, width: 2),
+                            ),
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundImage: FileImage(File(snapshot.data!)),
+                              onBackgroundImageError: (exception, stackTrace) {
+                                // Handle error if needed
+                              },
+                            ),
+                          );
+                        } else {
+                          // Fallback to default avatar
                           return Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
@@ -97,9 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                             ),
                           );
-                        },
-                      );
-                    }
+                        }
+                      },
+                    );
                   },
                 ),
               ),
@@ -695,11 +718,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final borderRadius = isSmallScreen ? 12.0 : 16.0;
     final iconBorderRadius = isSmallScreen ? 6.0 : 8.0;
     
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
+    return Builder(
+      builder: (context) => MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
         padding: EdgeInsets.all(cardPadding),
         decoration: BoxDecoration(
           color: LivTheme.glassmorphicBackground,
@@ -777,6 +801,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ),
+    ),
     );
   }
   
@@ -821,14 +846,31 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'New York, NY',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on,
+                      color: LivTheme.textBlack54,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'New York, NY',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -852,10 +894,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                          ),
                           onPressed: () {
                             _showMessageDialog(context);
                           },
-                          icon: const Icon(Icons.chat, color: Colors.white, size: 16),
+                          icon: const Icon(Icons.chat, color: Colors.white, size: 14),
                           label: const Text(
                             'Chat',
                             style: TextStyle(
@@ -863,6 +911,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
@@ -876,6 +925,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                          ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -884,7 +939,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.favorite, color: Colors.white, size: 16),
+                          icon: const Icon(Icons.favorite, color: Colors.white, size: 14),
                           label: const Text(
                             'Like',
                             style: TextStyle(
@@ -892,6 +947,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
@@ -1039,6 +1095,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1057,11 +1115,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 16,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      locations[index % locations.length],
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.white,
+                    Expanded(
+                      child: Text(
+                        locations[index % locations.length],
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
                       ),
                     ),
                   ],
@@ -1077,6 +1140,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                          ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -1085,7 +1154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.favorite, size: 16, color: Colors.white),
+                          icon: const Icon(Icons.favorite, size: 14, color: Colors.white),
                           label: Text(
                             'Like',
                             style: LivTheme.getBlackButton(context).copyWith(
@@ -1117,6 +1186,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                          ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -1125,7 +1200,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             );
                           },
-                          icon: const Icon(Icons.message, size: 16, color: Colors.white),
+                          icon: const Icon(Icons.message, size: 14, color: Colors.white),
                           label: const Text(
                             'Message',
                             style: TextStyle(
@@ -1133,6 +1208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),

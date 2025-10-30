@@ -1001,6 +1001,18 @@ class LivInputStyles {
       borderRadius: BorderRadius.circular(16),
       borderSide: const BorderSide(color: LivTheme.accentRed),
     ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: const BorderSide(color: LivTheme.accentRedLight, width: 2),
+    ),
+    errorStyle: GoogleFonts.roboto(
+      color: Colors.black,
+      fontWeight: FontWeight.w700,
+      fontSize: 12,
+      // shadows: [
+      //   Shadow(color: Colors.white, blurRadius: 2, offset: Offset(0, 1)),
+      // ],
+    ),
     labelText: labelText,
     hintText: hintText,
     prefixIcon: prefixIcon,

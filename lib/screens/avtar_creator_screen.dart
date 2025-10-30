@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_windows/webview_windows.dart' as winwv;
-import '../services/avatar_service.dart';
+import '../services/avtar_service.dart';
 import '../theme/liv_theme.dart';
 
 class AvatarCreatorScreen extends StatefulWidget {

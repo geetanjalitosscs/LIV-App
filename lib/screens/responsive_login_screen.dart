@@ -18,6 +18,10 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _ageController = TextEditingController();
+  String? _selectedGender;
   
   bool _isLoginMode = true;
   bool _obscurePassword = true;
@@ -90,6 +94,9 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
 
@@ -436,10 +443,21 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
             
             ResponsiveSpacing(isLarge: true),
             
+            // Additional fields for Registration
+            if (!_isLoginMode) ...[
+              _buildFullNameField(),
+              ResponsiveSpacing(isMedium: true),
+            ],
+            
             // Email Field
             _buildEmailField(),
             
             ResponsiveSpacing(isMedium: true),
+            
+            if (!_isLoginMode) ...[
+              _buildPhoneField(),
+              ResponsiveSpacing(isMedium: true),
+            ],
             
             // Password Field
             _buildPasswordField(),
@@ -448,6 +466,10 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
             if (!_isLoginMode) ...[
               ResponsiveSpacing(isMedium: true),
               _buildConfirmPasswordField(),
+              ResponsiveSpacing(isMedium: true),
+              _buildGenderField(),
+              ResponsiveSpacing(isMedium: true),
+              _buildAgeField(),
             ],
             
             ResponsiveSpacing(isLarge: true),
@@ -561,6 +583,101 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
     );
   }
 
+  Widget _buildFullNameField() {
+    return TextFormField(
+      controller: _fullNameController,
+      textCapitalization: TextCapitalization.words,
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
+        labelText: 'Full Name',
+        prefixIcon: ResponsiveIcon(Icons.person_outline),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter your full name';
+        }
+        final name = value.trim();
+        if (RegExp(r"[0-9]").hasMatch(name)) {
+          return 'Name should not contain numbers';
+        }
+        if (name.length < 3) {
+          return 'Name must be at least 3 characters';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return TextFormField(
+      controller: _phoneController,
+      keyboardType: TextInputType.phone,
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
+        labelText: 'Phone Number',
+        prefixIcon: ResponsiveIcon(Icons.phone_outlined),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter your phone number';
+        }
+        final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+        if (digits.length < 10 || digits.length > 15) {
+          return 'Enter a valid phone number (10-15 digits)';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildGenderField() {
+    return DropdownButtonFormField<String>(
+      value: _selectedGender,
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
+        labelText: 'Gender',
+        prefixIcon: ResponsiveIcon(Icons.wc_outlined),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'Male', child: Text('Male')),
+        DropdownMenuItem(value: 'Female', child: Text('Female')),
+        DropdownMenuItem(value: 'Other', child: Text('Other')),
+      ],
+      onChanged: (value) {
+        setState(() {
+          _selectedGender = value;
+        });
+      },
+      validator: (value) {
+        if (!_isLoginMode && (value == null || value.isEmpty)) {
+          return 'Please select your gender';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildAgeField() {
+    return TextFormField(
+      controller: _ageController,
+      keyboardType: TextInputType.number,
+      decoration: LivInputStyles.getGlassmorphicInputDecoration(
+        labelText: 'Age',
+        prefixIcon: ResponsiveIcon(Icons.cake_outlined),
+      ),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Please enter your age';
+        }
+        final age = int.tryParse(value.trim());
+        if (age == null) {
+          return 'Age must be a number';
+        }
+        if (age < 13 || age > 120) {
+          return 'Enter a valid age (13-120)';
+        }
+        return null;
+      },
+    );
+  }
+
   Widget _buildPasswordField() {
     return TextFormField(
       controller: _passwordController,
@@ -614,7 +731,7 @@ class _ResponsiveLoginScreenState extends State<ResponsiveLoginScreen>
           return 'Please confirm your password';
         }
         if (value != _passwordController.text) {
-          return 'Passwords do not match';
+          return 'Passwords does not matched';
         }
         return null;
       },

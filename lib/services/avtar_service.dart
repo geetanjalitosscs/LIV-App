@@ -9,10 +9,10 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/paths.dart';
 
 class AvatarService {
   static const String _baseUrl = 'https://readyplayer.me/avatar?frameApi';
-  static const String _uploadsPath = r'C:\xampp\htdocs\Liv-App\Uploads';
 
   /// Load saved avatar from local storage
   static Future<Map<String, String?>> loadSavedAvatar() async {
@@ -33,7 +33,7 @@ class AvatarService {
       }
       
       // Fallback: Get all PNG files and find the most recent one
-      final uploadsDir = Directory(_uploadsPath);
+      final uploadsDir = Directory(AppPaths.windowsUploads);
       
       if (!uploadsDir.existsSync()) {
         print('Uploads directory does not exist');
@@ -59,7 +59,7 @@ class AvatarService {
       // Extract avatar ID from filename
       final fileName = latestPng.path.split('\\').last;
       final avatarId = fileName.replaceAll('.png', '');
-      final glbPath = '$_uploadsPath\\$avatarId.glb';
+      final glbPath = '${uploadsDir.path}\\$avatarId.glb';
       
       // print('Found latest avatar: $avatarId'); // Removed to prevent log spam
       return {
@@ -106,14 +106,7 @@ class AvatarService {
       print('Downloading avatar from: $url');
       print('Avatar ID: $avatarId');
 
-      Directory uploads;
-      if (Platform.isWindows) {
-        // Save to requested absolute directory on Windows
-        uploads = Directory(_uploadsPath);
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        uploads = Directory('${dir.path}/uploads');
-      }
+      final uploads = await AppPaths.resolveUploadsDirectory();
       
       print('Saving to directory: ${uploads.path}');
       if (!await uploads.exists()) {
