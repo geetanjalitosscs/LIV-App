@@ -3,6 +3,9 @@ import 'package:path_provider/path_provider.dart';
 
 /// Centralized paths for filesystem locations used by the app.
 class AppPaths {
+  /// API base URL - change this if your server URL is different
+  static const String apiBaseUrl = 'http://localhost/Liv-App/api';
+  
   /// Windows absolute path where avatars are stored locally for this project.
   /// Change this in one place if the folder moves.
   static const String windowsUploads = r'C:\xampp\htdocs\Liv-App\avtars\Uploads';

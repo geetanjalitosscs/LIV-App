@@ -1,0 +1,53 @@
+<?php
+header('Content-Type: application/json');
+require_once './config_db.php';
+
+// Auto-create users table if not exists
+$conn->query("CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    gender VARCHAR(15) NOT NULL,
+    age INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)");
+
+// Read JSON or form POST
+$input = $_POST;
+if (empty($input)) {
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+}
+
+$required = ['full_name', 'email', 'phone', 'password', 'gender', 'age'];
+foreach ($required as $field) {
+    if (empty($input[$field])) {
+        echo json_encode(["success" => false, "error" => "Missing: $field"]); exit;
+    }
+}
+
+$full_name = $conn->real_escape_string(trim($input['full_name']));
+$email = strtolower($conn->real_escape_string(trim($input['email'])));
+$phone = $conn->real_escape_string(trim($input['phone']));
+$password = password_hash($input['password'], PASSWORD_DEFAULT);
+$gender = $conn->real_escape_string(trim($input['gender']));
+$age = (int)$input['age'];
+
+// Check for duplicate email
+$chk = $conn->query("SELECT id FROM users WHERE email='$email' LIMIT 1");
+if ($chk && $chk->num_rows > 0) {
+    echo json_encode(["success" => false, "error" => "Email already registered."]); exit;
+}
+
+$sql = "INSERT INTO users (full_name, email, phone, password, gender, age) VALUES (?, ?, ?, ?, ?, ?)";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param('sssssi', $full_name, $email, $phone, $password, $gender, $age);
+
+if ($stmt->execute()) {
+    echo json_encode(["success" => true]);
+} else {
+    echo json_encode(["success" => false, "error" => $stmt->error]);
+}
+$stmt->close();
+$conn->close();

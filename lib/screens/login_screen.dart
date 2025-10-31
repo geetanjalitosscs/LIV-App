@@ -138,11 +138,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // Builds a themed prefix icon for gender field, reacting to selection
-  Widget _buildGenderPrefixIcon() {
-    return _genderIconFor(_selectedGender);
-  }
-
   // Reusable gender icon widget for menu and field (human silhouettes)
   Widget _genderIconFor(String? gender) {
     if (gender == 'Male') {
@@ -417,6 +412,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                     label: 'Email',
                                                     icon: Icons.email_outlined,
                                                     keyboardType: TextInputType.emailAddress,
+                                                    inputFormatters: [
+                                                      TextInputFormatter.withFunction(
+                                                        (oldValue, newValue) => TextEditingValue(
+                                                          text: newValue.text.toLowerCase(),
+                                                          selection: newValue.selection,
+                                                        ),
+                                                      ),
+                                                    ],
                                                     validator: (value) {
                                                       if (value == null || value.isEmpty) {
                                                         return 'Please enter email';
@@ -483,6 +486,14 @@ class _LoginScreenState extends State<LoginScreen>
                                                     label: 'Email',
                                                     icon: Icons.email_outlined,
                                                     keyboardType: TextInputType.emailAddress,
+                                                    inputFormatters: [
+                                                      TextInputFormatter.withFunction(
+                                                        (oldValue, newValue) => TextEditingValue(
+                                                          text: newValue.text.toLowerCase(),
+                                                          selection: newValue.selection,
+                                                        ),
+                                                      ),
+                                                    ],
                                                     validator: (value) {
                                                       if (value == null || value.isEmpty) {
                                                         return 'Please enter email';
@@ -575,7 +586,7 @@ class _LoginScreenState extends State<LoginScreen>
                                                     value: _signUpGender,
                                                     decoration: LivInputStyles.getGlassmorphicInputDecoration(
                                                       labelText: 'Gender',
-                                                      prefixIcon: _buildGenderPrefixIcon(),
+                                                      prefixIcon: _genderIconFor(_signUpGender),
                                                     ),
                                                     icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
                                                     dropdownColor: Colors.white,
@@ -791,37 +802,37 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _handleEmailAuth() async {
     if (_formKey.currentState!.validate()) {
       final authService = Provider.of<AuthService>(context, listen: false);
-      bool success = false;
       
-      if (_isLoginMode) {
-        success = await authService.signInWithEmailAndPassword(
-          _signInEmailController.text.trim(),
-          _signInPasswordController.text.trim(),
-        );
-      } else {
-        success = await authService.createUserWithEmailAndPassword(
-          _signUpEmailController.text.trim(),
-          _signUpPasswordController.text.trim(),
-        );
-      }
-      
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isLoginMode ? 'Login successful! Welcome!' : 'Account created successfully! Welcome!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
-            ),
+      try {
+        bool success = false;
+        
+        if (_isLoginMode) {
+          success = await authService.signInWithEmailAndPassword(
+            _signInEmailController.text.trim(),
+            _signInPasswordController.text.trim(),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isLoginMode ? 'Login failed. Please try again.' : 'Registration failed. Please try again.'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-            ),
+          final age = int.tryParse(_signUpAgeController.text.trim()) ?? 0;
+          success = await authService.createUserWithEmailAndPassword(
+            _signUpEmailController.text.trim(),
+            _signUpPasswordController.text.trim(),
+            fullName: _signUpFullNameController.text.trim(),
+            phone: _signUpPhoneController.text.trim(),
+            gender: _signUpGender ?? '',
+            age: age,
           );
+        }
+        
+        if (mounted && success) {
+          LivPopupMessage.showSuccess(
+            context,
+            _isLoginMode ? 'Login successful! Welcome!' : 'Account created successfully! Welcome!',
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          final errorMessage = e.toString().replaceFirst('Exception: ', '').replaceFirst('Login failed: ', '').replaceFirst('Signup failed: ', '');
+          LivPopupMessage.showError(context, errorMessage);
         }
       }
     }
@@ -833,21 +844,9 @@ class _LoginScreenState extends State<LoginScreen>
     
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google Sign-In successful! Welcome!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
+        LivPopupMessage.showSuccess(context, 'Google Sign-In successful! Welcome!');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google Sign-In failed. Please try again.'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 3),
-          ),
-        );
+        LivPopupMessage.showError(context, 'Google Sign-In failed. Please try again.');
       }
     }
   }
@@ -887,15 +886,17 @@ class _LoginScreenState extends State<LoginScreen>
                 
                 if (mounted) {
                   Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(success 
-                        ? 'Password reset email sent! Check your inbox.' 
-                        : 'Failed to send reset email. Please try again.'),
-                      backgroundColor: success ? Colors.green : Colors.red,
-                      duration: const Duration(seconds: 3),
-                    ),
-                  );
+                  if (success) {
+                    LivPopupMessage.showSuccess(
+                      context,
+                      'Password reset email sent! Check your inbox.',
+                    );
+                  } else {
+                    LivPopupMessage.showError(
+                      context,
+                      'Failed to send reset email. Please try again.',
+                    );
+                  }
                 }
               }
             },

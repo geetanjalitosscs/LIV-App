@@ -1072,3 +1072,145 @@ class LivAnimations {
   static const Curve slideCurve = Curves.easeOutCubic;
 }
 
+/// LIV App Popup Messages (replaces snackbars)
+class LivPopupMessage {
+  /// Show a success popup message
+  static void showSuccess(BuildContext context, String message) {
+    _showPopup(context, message, isSuccess: true);
+  }
+
+  /// Show an error popup message
+  static void showError(BuildContext context, String message) {
+    _showPopup(context, message, isSuccess: false);
+  }
+
+  /// Show an info popup message
+  static void showInfo(BuildContext context, String message) {
+    _showPopup(context, message, isSuccess: null);
+  }
+
+  /// Internal method to show the popup
+  static void _showPopup(BuildContext context, String message, {bool? isSuccess}) {
+    final color = isSuccess == true 
+        ? LivTheme.accentGreen 
+        : isSuccess == false 
+            ? LivTheme.accentRed 
+            : LivTheme.accentBlue;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.95),
+                Colors.white.withOpacity(0.9),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: color.withOpacity(0.3),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.3),
+                blurRadius: 30,
+                spreadRadius: 0,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                spreadRadius: 0,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      color,
+                      color.withOpacity(0.7),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.4),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isSuccess == true 
+                      ? Icons.check_circle 
+                      : isSuccess == false 
+                          ? Icons.error 
+                          : Icons.info,
+                  color: Colors.white,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Message Text
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.roboto(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: LivTheme.textPrimary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Close Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'OK',
+                    style: GoogleFonts.roboto(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
