@@ -23,7 +23,7 @@ if (!$checkUser || $checkUser->num_rows == 0) {
 
 // Build update query based on provided fields
 $updates = [];
-$allowedFields = ['full_name', 'phone', 'gender', 'age', 'location'];
+$allowedFields = ['full_name', 'phone', 'gender', 'age', 'location', 'bio'];
 
 foreach ($allowedFields as $field) {
     if (isset($input[$field])) {
@@ -32,7 +32,12 @@ foreach ($allowedFields as $field) {
         } else {
             $value = $conn->real_escape_string(trim($input[$field]));
         }
-        $updates[] = "$field = '$value'";
+        // Use proper quoting for text fields
+        if ($field == 'bio') {
+            $updates[] = "$field = '" . $conn->real_escape_string($value) . "'";
+        } else {
+            $updates[] = "$field = '$value'";
+        }
     }
 }
 
@@ -44,7 +49,7 @@ if (empty($updates)) {
 $sql = "UPDATE users SET " . implode(', ', $updates) . " WHERE id=$userId";
 if ($conn->query($sql)) {
     // Fetch updated user data
-    $getUser = $conn->query("SELECT id, full_name, email, phone, gender, age, location, created_at FROM users WHERE id=$userId LIMIT 1");
+    $getUser = $conn->query("SELECT id, full_name, email, phone, gender, age, location, bio, created_at FROM users WHERE id=$userId LIMIT 1");
     $user = $getUser->fetch_assoc();
     echo json_encode(["success" => true, "user" => $user]);
 } else {

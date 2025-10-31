@@ -14,7 +14,7 @@ if (empty($input['user_id'])) {
 
 $userId = (int)$input['user_id'];
 
-$sql = "SELECT id, full_name, email, phone, gender, age, location, created_at FROM users WHERE id=? LIMIT 1";
+$sql = "SELECT id, full_name, email, phone, gender, age, location, bio, created_at FROM users WHERE id=? LIMIT 1";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param('i', $userId);
 $stmt->execute();

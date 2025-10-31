@@ -12,6 +12,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS users (
     gender VARCHAR(15) NOT NULL,
     age INT NOT NULL,
     location VARCHAR(100) DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 

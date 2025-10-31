@@ -59,47 +59,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _originalAge = userData['age'] != null ? int.tryParse(userData['age'].toString()) : null;
         _originalGender = userData['gender']?.toString();
         _originalLocation = userData['location']?.toString() ?? '';
+        _originalBio = userData['bio']?.toString() ?? '';
         
         _fullNameController.text = _originalFullName ?? '';
         _phoneController.text = _originalPhone ?? '';
         _ageController.text = _originalAge?.toString() ?? '';
         _selectedGender = _originalGender;
         _locationController.text = _originalLocation ?? '';
-        
-        // Load data from UserService (local preferences)
-        final userService = UserService.instance;
-        _originalBio = userService.bio;
         _bioController.text = _originalBio ?? '';
       } else {
-        // Fallback to UserService if no database data
-        final userService = UserService.instance;
-        _originalFullName = userService.displayName;
-        _originalBio = userService.bio;
-        _originalAge = userService.age;
-        _originalLocation = userService.location;
+        // No database data - leave fields empty (no dummy data)
+        _originalFullName = '';
+        _originalBio = '';
+        _originalAge = null;
+        _originalLocation = '';
         _originalPhone = '';
-        _originalGender = '';
+        _originalGender = null;
         
-        _fullNameController.text = _originalFullName ?? '';
-        _bioController.text = _originalBio ?? '';
-        _ageController.text = _originalAge?.toString() ?? '';
-        _locationController.text = _originalLocation ?? '';
+        _fullNameController.text = '';
+        _bioController.text = '';
+        _ageController.text = '';
+        _locationController.text = '';
+        _selectedGender = null;
       }
     } catch (e) {
       print('Error loading user data: $e');
-      // Fallback to UserService
-      final userService = UserService.instance;
-      _originalFullName = userService.displayName;
-      _originalBio = userService.bio;
-      _originalAge = userService.age;
-      _originalLocation = userService.location;
+      // No database data - leave fields empty (no dummy data)
+      _originalFullName = '';
+      _originalBio = '';
+      _originalAge = null;
+      _originalLocation = '';
       _originalPhone = '';
-      _originalGender = '';
+      _originalGender = null;
       
-      _fullNameController.text = _originalFullName ?? '';
-      _bioController.text = _originalBio ?? '';
-      _ageController.text = _originalAge?.toString() ?? '';
-      _locationController.text = _originalLocation ?? '';
+      _fullNameController.text = '';
+      _bioController.text = '';
+      _ageController.text = '';
+      _locationController.text = '';
+      _selectedGender = null;
     } finally {
       setState(() {
         _isLoadingData = false;
@@ -490,20 +487,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
       
-      // Update database via API
-      print('Saving profile with userId: $userId');
-      final response = await http.post(
-        Uri.parse('${AppPaths.apiBaseUrl}/update_profile.php'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'user_id': userId,
-          'full_name': currentFullName,
-          'phone': currentPhone,
-          'gender': currentGender,
-          'age': age,
-          'location': currentLocation,
-        }),
-      );
+          // Update database via API
+          print('Saving profile with userId: $userId');
+          final response = await http.post(
+            Uri.parse('${AppPaths.apiBaseUrl}/update_profile.php'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'user_id': userId,
+              'full_name': currentFullName,
+              'phone': currentPhone,
+              'gender': currentGender,
+              'age': age,
+              'location': currentLocation,
+              'bio': currentBio,
+            }),
+          );
       
       print('API Response status: ${response.statusCode}');
       print('API Response body: ${response.body}');
@@ -513,19 +511,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (data['success'] == true) {
           print('Profile update successful, refreshing user data...');
           
-          // Update local UserService preferences (bio only, location is now in database)
-          final userService = UserService.instance;
-          userService.updateProfile(
-            bio: _bioController.text.trim(),
-          );
+              // Bio is now saved to database, no need for local UserService update
           
-          // Update original values from the response data (faster than API call)
-          _originalFullName = data['user']['full_name']?.toString() ?? currentFullName;
-          _originalPhone = data['user']['phone']?.toString() ?? currentPhone;
-          _originalAge = data['user']['age'] != null ? int.tryParse(data['user']['age'].toString()) : age;
-          _originalGender = data['user']['gender']?.toString() ?? currentGender;
-          _originalLocation = data['user']['location']?.toString() ?? currentLocation;
-          _originalBio = _bioController.text.trim();
+              // Update original values from the response data (faster than API call)
+              _originalFullName = data['user']['full_name']?.toString() ?? currentFullName;
+              _originalPhone = data['user']['phone']?.toString() ?? currentPhone;
+              _originalAge = data['user']['age'] != null ? int.tryParse(data['user']['age'].toString()) : age;
+              _originalGender = data['user']['gender']?.toString() ?? currentGender;
+              _originalLocation = data['user']['location']?.toString() ?? currentLocation;
+              _originalBio = data['user']['bio']?.toString() ?? currentBio;
           
           print('Original values updated after save:');
           print('  FullName: $_originalFullName, Phone: $_originalPhone, Gender: $_originalGender');

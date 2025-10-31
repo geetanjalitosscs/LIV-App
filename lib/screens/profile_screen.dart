@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../config/paths.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -106,6 +108,30 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _readyPlayerMeAvatarPath = null;
       });
     }
+  }
+
+  /// Get like count for current user
+  Future<Map<String, int>> _getLikeCount(int? userId) async {
+    if (userId == null) return {};
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_likes_count.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'user_ids': [userId]}),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true && data['likes'] != null) {
+          final likes = Map<String, dynamic>.from(data['likes']);
+          return likes.map((key, value) => MapEntry(key.toString(), int.tryParse(value.toString()) ?? 0));
+        }
+      }
+    } catch (e) {
+      print('Error loading like count: $e');
+    }
+    return {};
   }
 
   // Helper method to get the appropriate profile image (returns null if no avatar)
@@ -592,36 +618,50 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                             builder: (context, authService, child) {
                               final userData = authService.userData;
                               
-                              // Get data from database, fallback to UserService if not available
-                              final displayName = userData?['full_name']?.toString() ?? userService.displayName;
+                              // Get data from database only - no dummy data fallbacks
+                              final displayName = userData?['full_name']?.toString().trim() ?? '';
                               final ageValue = userData?['age'] != null 
-                                  ? int.tryParse(userData!['age'].toString()) ?? userService.age
-                                  : userService.age;
-                              final location = userData?['location']?.toString() ?? userService.location;
-                              final bio = userService.bio.isNotEmpty 
-                                  ? userService.bio 
-                                  : (userData?['bio']?.toString() ?? 'Looking for new friends!');
+                                  ? int.tryParse(userData!['age'].toString())
+                                  : null;
+                              final location = userData?['location']?.toString().trim() ?? '';
+                              final bio = userData?['bio']?.toString().trim() ?? '';
                               
-                              return Column(
-                                children: [
+                              return FutureBuilder<Map<String, int>>(
+                                future: _getLikeCount(authService.userId),
+                                builder: (context, snapshot) {
+                                  final likeCount = snapshot.data?[authService.userId?.toString() ?? ''] ?? 0;
+                                  
+                                  return Column(
+                                    children: [
                                   // Full Name from Database
-                                  Text(
-                                    displayName,
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
+                                  if (displayName.isNotEmpty)
+                                    Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
+                                  if (displayName.isEmpty)
+                                    Text(
+                                      'Profile',
+                                      style: const TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
                                   const SizedBox(height: 8),
                                   // Age from Database
-                                  Text(
-                                    '$ageValue years old',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white70,
+                                  if (ageValue != null)
+                                    Text(
+                                      '$ageValue years old',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white70,
+                                      ),
                                     ),
-                                  ),
                                   const SizedBox(height: 8),
                                   // Location from Database
                                   if (location.isNotEmpty)
@@ -643,8 +683,31 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                         ),
                                       ],
                                     ),
-                                  const SizedBox(height: 24),
-                                  // About Section - Bio from UserService (local preferences)
+                                  const SizedBox(height: 12),
+                                  // Like Count
+                                  if (likeCount > 0)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.favorite,
+                                          color: Colors.white70,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '$likeCount ${likeCount == 1 ? 'like' : 'likes'}',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  if (likeCount > 0) const SizedBox(height: 12),
+                                  const SizedBox(height: 12),
+                                  // About Section - Bio from Database
                                   Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(20),
@@ -658,13 +721,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                         ),
                                         const SizedBox(height: 12),
                                         Text(
-                                          bio,
+                                          bio.isNotEmpty ? bio : 'No bio available',
                                           style: LivTheme.getGlassmorphicBodySecondary(context).copyWith(height: 1.4),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
+                                    ],
+                                  );
+                                },
                               );
                             },
                           ),

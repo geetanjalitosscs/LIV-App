@@ -1,11 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/theme_service.dart';
 import '../services/avtar_service.dart';
 import '../theme/liv_theme.dart';
+import '../config/paths.dart';
 import '../widgets/bottom_navigation.dart';
 import 'coach_screen.dart';
 import 'feed_screen.dart';
@@ -23,6 +27,14 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  List<Map<String, dynamic>> _allUsers = [];
+  bool _isLoadingUsers = false;
+  // Cache futures to prevent recreation on rebuilds
+  final Map<int, Future<String?>> _avatarFutures = {};
+  // Track like counts and liked status
+  final Map<int, int> _likeCounts = {};
+  final Set<int> _likedUserIds = {};
+  int? _lastLoadedUserId; // Track which user's likes were loaded
   
   @override
   void initState() {
@@ -30,7 +42,77 @@ class _HomeScreenState extends State<HomeScreen> {
     // Refresh avatar when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       setState(() {});
+      _loadAllUsers();
     });
+  }
+  
+  Future<void> _loadAllUsers() async {
+    setState(() {
+      _isLoadingUsers = true;
+    });
+    
+    try {
+      final authService = AuthService.instance;
+      final currentUserId = authService.userId;
+      
+      print('Loading all users... Current User ID: $currentUserId');
+      print('API URL: ${AppPaths.apiBaseUrl}/get_all_users.php');
+      
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_all_users.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'current_user_id': currentUserId,
+        }),
+      );
+      
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Parsed data: $data');
+        
+        if (data['success'] == true) {
+          final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+          print('Loaded ${users.length} users');
+          // Clear old avatar futures that are no longer needed
+          final userIds = users.map((u) => u['id'] != null ? int.tryParse(u['id'].toString()) : null).whereType<int>().toSet();
+          _avatarFutures.removeWhere((key, _) => !userIds.contains(key));
+          
+          // Load like counts and liked status
+          await _loadLikesData(userIds.toList());
+          
+          // Update last loaded user ID if current user is logged in
+          final authService = AuthService.instance;
+          if (authService.userId != null) {
+            _lastLoadedUserId = authService.userId;
+          }
+          
+          setState(() {
+            _allUsers = users;
+            _isLoadingUsers = false;
+          });
+        } else {
+          print('API returned success=false');
+          setState(() {
+            _isLoadingUsers = false;
+          });
+        }
+      } else {
+        print('HTTP Error: ${response.statusCode}');
+        print('Response: ${response.body}');
+        setState(() {
+          _isLoadingUsers = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Error loading users: $e');
+      print('Stack trace: $stackTrace');
+      setState(() {
+        _isLoadingUsers = false;
+      });
+    }
   }
 
   @override
@@ -49,6 +131,46 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
+    
+    return Consumer<AuthService>(
+      builder: (context, authService, child) {
+        // Reload likes when user logs in (userId changes) or when switching to Discover tab
+        final currentUserId = authService.userId;
+        
+        // When user logs in (userId changes from null to a value, or different user logs in)
+        // Reload likes if:
+        // 1. User is logged in
+        // 2. Different user than last loaded OR likes haven't been loaded yet
+        // 3. We have users loaded OR we're on Discover tab (will load users)
+        if (currentUserId != null && 
+            _lastLoadedUserId != currentUserId && 
+            !_isLoadingUsers) {
+          print('User changed: $currentUserId (was: $_lastLoadedUserId)');
+          // If on Discover tab and users are loaded, reload likes immediately
+          if (_currentIndex == 3 && _allUsers.isNotEmpty) {
+            print('Reloading likes immediately on Discover tab');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final userIds = _allUsers.map((u) => u['id'] != null ? int.tryParse(u['id'].toString()) : null).whereType<int>().toList();
+              if (userIds.isNotEmpty) {
+                _loadLikesData(userIds);
+                _lastLoadedUserId = currentUserId;
+              }
+            });
+          } else if (_currentIndex != 3) {
+            // If not on Discover tab, mark that we need to reload likes when we switch to it
+            // Just update the last loaded user ID to null so it reloads when switching tabs
+            print('Not on Discover tab, will reload when switching to it');
+            _lastLoadedUserId = null;
+          }
+        }
+        
+        // When user logs out (userId becomes null)
+        if (currentUserId == null && _lastLoadedUserId != null) {
+          print('User logged out, clearing likes data');
+          _likedUserIds.clear();
+          _likeCounts.clear();
+          _lastLoadedUserId = null;
+        }
     
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -167,8 +289,16 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _currentIndex = index;
           });
+          // Refresh users list when switching to Discover tab (index 3)
+          if (index == 3) {
+            // Always reload users and likes when switching to Discover tab
+            // This ensures likes are fresh after login
+            _loadAllUsers(); // This will also load likes via _loadLikesData
+          }
         },
       ),
+        );
+      },
     );
   }
   
@@ -466,8 +596,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
     
+    return LayoutBuilder(
+      builder: (context, constraints) {
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: isSmallScreen ? 16.0 : 24.0,
@@ -477,26 +613,105 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
             Text(
               'Discover People',
               style: LivTheme.getBlackTitle(context).copyWith(
                 fontSize: isSmallScreen ? 24 : 28,
                 fontWeight: FontWeight.bold,
               ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          _loadAllUsers();
+                        },
+                        icon: _isLoadingUsers
+                            ? SizedBox(
+                                width: isSmallScreen ? 20 : 24,
+                                height: isSmallScreen ? 20 : 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: isSmallScreen ? 20 : 24,
+                              ),
+                        tooltip: 'Refresh',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.2),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
+                    ],
             ),
             const SizedBox(height: 20),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                return _buildFeedCard(index);
-              },
+                  if (_isLoadingUsers)
+                    SizedBox(
+                      height: constraints.maxHeight.isFinite 
+                          ? constraints.maxHeight - 200 
+                          : MediaQuery.of(context).size.height - 300,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (_allUsers.isEmpty)
+                    SizedBox(
+                      height: constraints.maxHeight.isFinite 
+                          ? constraints.maxHeight - 200 
+                          : MediaQuery.of(context).size.height - 300,
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 64,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No users found',
+                                style: LivTheme.getBlackBody(context),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  _loadAllUsers();
+                                },
+                                icon: const Icon(Icons.refresh, color: Colors.white70),
+                                label: const Text(
+                                  'Refresh',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: _allUsers.map((user) => _buildFeedCard(user)).toList(),
             ),
             const SizedBox(height: 20),
           ],
+              ),
         ),
       ),
+        );
+      },
     );
   }
   
@@ -516,11 +731,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             // First check if user has a selected avatar
                             userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()
                                 ? CircleAvatar(
-                                    radius: 60,
+                              radius: 60,
                                     backgroundImage: FileImage(File(userService.selectedAvatar!)),
-                                    onBackgroundImageError: (exception, stackTrace) {
-                                      // Handle error if needed
-                                    },
+                              onBackgroundImageError: (exception, stackTrace) {
+                                // Handle error if needed
+                              },
                                   )
                                 : FutureBuilder<String?>(
                                     future: AvatarService.getAvatarImagePath(),
@@ -545,8 +760,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                         );
                                       }
-                                    },
-                                  ),
+                              },
+                            ),
                             Positioned(
                               bottom: 0,
                               right: 0,
@@ -570,36 +785,45 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-            // Profile Info
-            Consumer<UserService>(
-              builder: (context, userService, child) {
+            // Profile Info - Get from database only
+            Consumer<AuthService>(
+              builder: (context, authService, child) {
+                final userData = authService.userData;
+                final displayName = userData?['full_name']?.toString().trim() ?? '';
+                final ageValue = userData?['age'] != null 
+                    ? int.tryParse(userData!['age'].toString())
+                    : null;
+                final location = userData?['location']?.toString().trim() ?? '';
+                
                 return Column(
                   children: [
                       Text(
-                        userService.displayName,
+                      displayName.isNotEmpty ? displayName : 'Profile',
                         style: LivTheme.getBlackTitle(context).copyWith(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                    if (ageValue != null)
                       Text(
-                        '${userService.age} years old',
+                        '$ageValue years old',
                         style: LivTheme.getBlackBodySecondary(context).copyWith(
                           fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 8),
+                    if (location.isNotEmpty)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const                           Icon(
+                          const Icon(
                             Icons.location_on,
                             color: LivTheme.glassmorphicLightBorder,
                             size: 16,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            userService.location,
+                            location,
                             style: LivTheme.getBlackBodySecondary(context).copyWith(
                               fontSize: 14,
                             ),
@@ -612,8 +836,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
                       const SizedBox(height: 16),
                       
-            // About Section
-                      Container(
+            // About Section - Get from database only
+                      Consumer<AuthService>(
+                        builder: (context, authService, child) {
+                          final userData = authService.userData;
+                          final bio = userData?['bio']?.toString().trim() ?? '';
+                          
+                          return Container(
                         padding: const EdgeInsets.all(16),
                         decoration: LivDecorations.glassmorphicLightCard,
                         child: Column(
@@ -624,20 +853,17 @@ class _HomeScreenState extends State<HomeScreen> {
           style: LivTheme.getBlackSubtitle(context),
         ),
                             const SizedBox(height: 8),
-                  Consumer<UserService>(
-                    builder: (context, userService, child) {
-                      return Text(
-                              userService.bio,
+                                Text(
+                                  bio.isNotEmpty ? bio : 'No bio available',
                         style: LivTheme.getBlackBodySecondary(context).copyWith(
                           height: 1.4,
                         ),
-                      );
-                    },
                             ),
                           ],
                         ),
+                          );
+                        },
         ),
-              
               const SizedBox(height: 24),
               
               // Action Buttons
@@ -1087,30 +1313,217 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFeedCard(int index) {
-    final avatars = [
-      'assets/avatars/Gemini_Generated_Image_1x9rce1x9rce1x9r.png',
-      'assets/avatars/Gemini_Generated_Image_4echfc4echfc4ech.png',
-      'assets/avatars/Gemini_Generated_Image_8h3zz58h3zz58h3z.png',
-      'assets/avatars/Gemini_Generated_Image_9btvl39btvl39btv.png',
-      'assets/avatars/Gemini_Generated_Image_9tb20o9tb20o9tb2.png',
-    ];
+  /// Get or create avatar future for a user (cached)
+  Future<String?> _getUserAvatarFuture(int userId) {
+    if (!_avatarFutures.containsKey(userId)) {
+      _avatarFutures[userId] = _loadUserAvatar(userId);
+    }
+    return _avatarFutures[userId]!;
+  }
+
+  /// Load like counts and liked status for users
+  Future<void> _loadLikesData(List<int> userIds) async {
+    if (userIds.isEmpty) return;
     
-    final names = ['Sarah', 'Emma', 'Jessica', 'Amanda', 'Lisa', 'Rachel', 'Megan', 'Ashley', 'Nicole', 'Stephanie'];
-    final ages = [25, 28, 23, 30, 26, 27, 24, 29, 31, 22];
-    final locations = ['New York, NY', 'Los Angeles, CA', 'Chicago, IL', 'Miami, FL', 'Seattle, WA', 'Boston, MA', 'Denver, CO', 'Austin, TX', 'Portland, OR', 'Nashville, TN'];
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) return;
     
-    return Container(
+    print('Loading likes data for user $currentUserId, checking ${userIds.length} users');
+    
+    try {
+      // Get like counts for all users
+      final likesResponse = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_likes_count.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'user_ids': userIds}),
+      );
+      
+      if (likesResponse.statusCode == 200) {
+        final likesData = json.decode(likesResponse.body);
+        print('Likes count response: $likesData');
+        if (likesData['success'] == true && likesData['likes'] != null) {
+          final likes = Map<String, dynamic>.from(likesData['likes']);
+          _likeCounts.clear();
+          for (final entry in likes.entries) {
+            final userId = int.tryParse(entry.key.toString());
+            if (userId != null) {
+              _likeCounts[userId] = int.tryParse(entry.value.toString()) ?? 0;
+            }
+          }
+          print('Loaded like counts: $_likeCounts');
+        }
+      }
+      
+      // Check which users the current user has liked
+      final likedResponse = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/check_user_liked.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId,
+          'liked_user_ids': userIds,
+        }),
+      );
+      
+      if (likedResponse.statusCode == 200) {
+        final likedData = json.decode(likedResponse.body);
+        print('Liked users response: $likedData');
+        if (likedData['success'] == true && likedData['liked_user_ids'] != null) {
+          final likedIds = List.from(likedData['liked_user_ids'])
+              .map((id) => int.tryParse(id.toString()))
+              .whereType<int>()
+              .toList();
+          _likedUserIds.clear();
+          _likedUserIds.addAll(likedIds);
+          print('Loaded liked user IDs: $_likedUserIds');
+        }
+      } else {
+        print('Error getting liked users: ${likedResponse.statusCode}');
+      }
+      
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error loading likes data: $e');
+    }
+  }
+
+  /// Toggle like for a user
+  Future<void> _toggleLike(int likedUserId) async {
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) {
+      LivPopupMessage.showError(context, 'Please log in to like users');
+      return;
+    }
+    
+    if (currentUserId == likedUserId) {
+      LivPopupMessage.showError(context, 'Cannot like yourself');
+      return;
+    }
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/toggle_like.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId,
+          'liked_user_id': likedUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final isLiked = data['liked'] == true;
+          final likeCount = int.tryParse(data['like_count'].toString()) ?? 0;
+          
+          setState(() {
+            if (isLiked) {
+              _likedUserIds.add(likedUserId);
+            } else {
+              _likedUserIds.remove(likedUserId);
+            }
+            _likeCounts[likedUserId] = likeCount;
+          });
+        } else {
+          LivPopupMessage.showError(context, data['error'] ?? 'Failed to like user');
+        }
+      } else {
+        LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+
+  /// Load avatar for a specific user
+  Future<String?> _loadUserAvatar(int userId) async {
+    try {
+      final userUploadsDir = Directory('${AppPaths.windowsUploadsBase}\\user_$userId');
+      
+      if (!userUploadsDir.existsSync()) {
+        return null;
+      }
+      
+      final prefs = await SharedPreferences.getInstance();
+      
+      // First check SharedPreferences for selected avatar (gallery image)
+      final selectedGalleryAvatar = prefs.getString('user_${userId}_selectedGalleryAvatar');
+      if (selectedGalleryAvatar != null && File(selectedGalleryAvatar).existsSync()) {
+        return selectedGalleryAvatar;
+      }
+      
+      // Check for last avatar PNG path
+      final lastAvatarPngPath = prefs.getString('user_${userId}_lastAvatarPngPath');
+      if (lastAvatarPngPath != null && File(lastAvatarPngPath).existsSync()) {
+        return lastAvatarPngPath;
+      }
+      
+      // Fallback: Get all PNG files from user directory and find the most recent one
+      final pngFiles = userUploadsDir
+          .listSync()
+          .where((file) => file is File && file.path.toLowerCase().endsWith('.png'))
+          .cast<File>()
+          .toList();
+      
+      if (pngFiles.isEmpty) {
+        return null;
+      }
+      
+      // Sort by modification time (most recent first)
+      pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      return pngFiles.first.path;
+    } catch (e) {
+      // Silently handle errors
+      return null;
+    }
+  }
+
+  Widget _buildFeedCard(Map<String, dynamic> user) {
+    final userId = user['id'];
+    final userIdInt = userId != null ? int.tryParse(userId.toString()) : null;
+    final fullName = user['full_name']?.toString() ?? 'User';
+    final age = user['age'] != null ? int.tryParse(user['age'].toString()) ?? 0 : 0;
+    final location = user['location']?.toString() ?? '';
+    
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => _showUserProfile(context, user),
+        child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: LivDecorations.glassmorphicCard,
       child: Row(
         children: [
-          CircleAvatar(
+          // Avatar - Load asynchronously using FutureBuilder (with cached future)
+          FutureBuilder<String?>(
+            key: ValueKey('avatar_$userIdInt'),
+            future: userIdInt != null ? _getUserAvatarFuture(userIdInt) : Future.value(null),
+            builder: (context, snapshot) {
+              final avatarPath = snapshot.data;
+              if (avatarPath != null && File(avatarPath).existsSync()) {
+                return CircleAvatar(
             radius: 35,
-            backgroundImage: AssetImage(avatars[index % avatars.length]),
+                  backgroundImage: FileImage(File(avatarPath)),
             onBackgroundImageError: (exception, stackTrace) {
-              // Handle error if needed
+                    // Silently handle error - will show placeholder on next rebuild
+                  },
+                  child: null,
+                );
+              }
+              // Placeholder
+              return CircleAvatar(
+                radius: 35,
+                backgroundColor: Colors.grey[300],
+                child: Icon(
+                  Icons.person,
+                  size: 35,
+                  color: Colors.grey[600],
+                ),
+              );
             },
           ),
           const SizedBox(width: 16),
@@ -1119,7 +1532,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  names[index % names.length],
+                  fullName,
                   style: LivTheme.getBlackTitle(context).copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1129,13 +1542,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${ages[index % ages.length]} years old',
+                  '$age years old',
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
+                if (location.isNotEmpty)
                 Row(
                   children: [
                     Icon(
@@ -1146,7 +1560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        locations[index % locations.length],
+                          location,
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.white,
@@ -1157,6 +1571,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ],
+                ),
+                // Like count display
+                if (_likeCounts.containsKey(userIdInt) && _likeCounts[userIdInt]! > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12, top: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.favorite,
+                          size: 14,
+                          color: LivTheme.primaryPink,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_likeCounts[userIdInt]} ${_likeCounts[userIdInt] == 1 ? 'like' : 'likes'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -1176,16 +1612,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
                           ),
                           onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Like feature coming soon!'),
-                                backgroundColor: Color(0xFFE91E63),
-                              ),
-                            );
+                            if (userIdInt != null) {
+                              _toggleLike(userIdInt);
+                            }
                           },
-                          icon: const Icon(Icons.favorite, size: 14, color: Colors.white),
+                          icon: Icon(
+                            _likedUserIds.contains(userIdInt) ? Icons.favorite : Icons.favorite_border,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                           label: Text(
-                            'Like',
+                            _likedUserIds.contains(userIdInt) ? 'Liked' : 'Like',
                             style: LivTheme.getBlackButton(context).copyWith(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1249,8 +1686,267 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      ),
+      ),
     );
   }
+
+  /// Show user profile details dialog
+  Future<void> _showUserProfile(BuildContext context, Map<String, dynamic> user) async {
+    final userId = user['id'];
+    final userIdInt = userId != null ? int.tryParse(userId.toString()) : null;
+    
+    // Fetch full user data including bio from database
+    Map<String, dynamic> fullUserData = Map<String, dynamic>.from(user);
+    
+    if (userIdInt != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('${AppPaths.apiBaseUrl}/get_user_by_id.php'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'user_id': userIdInt}),
+        );
+        
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          if (data['success'] == true && data['user'] != null) {
+            fullUserData = Map<String, dynamic>.from(data['user']);
+          }
+        }
+      } catch (e) {
+        print('Error fetching user data: $e');
+      }
+    }
+    
+    // Get user avatar
+    String? avatarPath;
+    int likeCount = 0;
+    if (userIdInt != null) {
+      try {
+        avatarPath = await _getUserAvatarFuture(userIdInt);
+        if (avatarPath != null && !File(avatarPath).existsSync()) {
+          avatarPath = null;
+        }
+        
+        // Get like count for this user
+        final likesResponse = await http.post(
+          Uri.parse('${AppPaths.apiBaseUrl}/get_likes_count.php'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({'user_ids': [userIdInt]}),
+        );
+        
+        if (likesResponse.statusCode == 200) {
+          final likesData = json.decode(likesResponse.body);
+          if (likesData['success'] == true && likesData['likes'] != null) {
+            likeCount = int.tryParse(likesData['likes'][userIdInt.toString()].toString()) ?? 0;
+          }
+        }
+      } catch (e) {
+        print('Error loading avatar: $e');
+      }
+    }
+    
+    // Show dialog
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.95),
+                Colors.white.withOpacity(0.9),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: LivTheme.primaryPink.withOpacity(0.3),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: LivTheme.primaryPink.withOpacity(0.3),
+                blurRadius: 30,
+                spreadRadius: 0,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                // Avatar
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: LivTheme.glassmorphicLightBorder,
+                  backgroundImage: avatarPath != null
+                      ? FileImage(File(avatarPath))
+                      : null,
+                  child: avatarPath == null
+                      ? Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Colors.grey[600],
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 20),
+                // Full Name
+                Text(
+                  fullUserData['full_name']?.toString() ?? 'User',
+                  style: LivTheme.getBlackTitle(context).copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                // Age and Gender
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (fullUserData['age'] != null)
+                      Text(
+                        '${fullUserData['age']} years old',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: LivTheme.textPrimary,
+                        ),
+                      ),
+                    if (fullUserData['age'] != null && fullUserData['gender'] != null)
+                      const Text(
+                        ' • ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: LivTheme.textPrimary,
+                        ),
+                      ),
+                    if (fullUserData['gender'] != null)
+                      Text(
+                        fullUserData['gender'].toString(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: LivTheme.textPrimary,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Like Count
+                if (likeCount > 0)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.favorite,
+                        color: LivTheme.primaryPink,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$likeCount ${likeCount == 1 ? 'like' : 'likes'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: LivTheme.textPrimary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (likeCount > 0) const SizedBox(height: 12),
+                // Location
+                if (fullUserData['location'] != null && fullUserData['location'].toString().isNotEmpty)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: LivTheme.primaryPink,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        fullUserData['location'].toString(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: LivTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
+                // About section (bio from local preferences - may be empty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: LivDecorations.glassmorphicLightCard,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'About',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        fullUserData['bio']?.toString().trim() ?? 'No bio available',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black.withOpacity(0.75),
+                          height: 1.4,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+                ),
+              ),
+              // Close button in top right corner
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.black87,
+                    size: 24,
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.8),
+                    padding: const EdgeInsets.all(8),
+                    shape: const CircleBorder(),
+                  ),
+                  tooltip: 'Close',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   
   void _navigateToScreen(BuildContext context, Widget screen) {
     Navigator.push(
