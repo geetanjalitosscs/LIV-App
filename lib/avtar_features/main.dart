@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'Avtar_Creator_Screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
+import '../services/auth_service.dart';
 
 void main() {
   runApp(const MyAvatarApp());
@@ -188,12 +189,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
 Future<Map<String, String?>> _loadSavedAvatar() async {
   try {
-    // Scan the uploads folder for the most recent avatar
-    final windowsUploads = AppPaths.windowsUploads;
+    // Get user-specific directory
+    final userId = AuthService.instance.userId;
+    if (userId == null) {
+      print('User not logged in');
+      return {'id': null, 'glb': null, 'png': null};
+    }
+    
+    // Scan the user-specific uploads folder for the most recent avatar
+    final windowsUploads = AppPaths.getWindowsUploadsPath(userId);
     final uploadsDir = Directory(windowsUploads);
     
     if (!uploadsDir.existsSync()) {
-      print('Uploads directory does not exist');
+      print('Uploads directory does not exist: $windowsUploads');
       return {'id': null, 'glb': null, 'png': null};
     }
     

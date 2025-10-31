@@ -7,10 +7,9 @@ class UserService extends ChangeNotifier {
   static final UserService _instance = UserService._internal();
   static UserService get instance => _instance;
   
-  UserService._internal() {
-    _loadSavedGalleryAvatar();
-    _loadSavedBackgroundPreferences();
-  }
+  UserService._internal();
+  
+  int? _currentUserId;
   
   String? _selectedAvatar;
   String _username = '1234';
@@ -22,6 +21,28 @@ class UserService extends ChangeNotifier {
   // Background customization
   String? _backgroundImage;
   int _backgroundColor = 0xFF42A5F5; // Default blue color
+  
+  // Helper to get user-specific key
+  String _getKey(String key) {
+    if (_currentUserId == null) return key;
+    return 'user_${_currentUserId}_$key';
+  }
+  
+  // Set current user ID (called from AuthService when user logs in/out)
+  void setUserId(int? userId) {
+    if (_currentUserId != userId) {
+      _currentUserId = userId;
+      if (userId != null) {
+        _loadSavedGalleryAvatar();
+        _loadSavedBackgroundPreferences();
+      } else {
+        // Clear data when logged out
+        _selectedAvatar = null;
+        _backgroundImage = null;
+      }
+      notifyListeners();
+    }
+  }
   
   // Getters
   String? get selectedAvatar => _selectedAvatar;
@@ -39,6 +60,8 @@ class UserService extends ChangeNotifier {
   String get currentAvatar => _selectedAvatar ?? 'assets/images/pngtree-google.png';
   
   void selectAvatar(String avatarPath) async {
+    if (_currentUserId == null) return;
+    
     _selectedAvatar = avatarPath;
     
     // Save to SharedPreferences for persistence
@@ -48,30 +71,30 @@ class UserService extends ChangeNotifier {
       // Determine if it's a gallery image or 3D avatar based on path
       if (avatarPath.contains('gallery_')) {
         // Gallery image
-        await prefs.setString('selectedGalleryAvatar', avatarPath);
+        await prefs.setString(_getKey('selectedGalleryAvatar'), avatarPath);
         // Clear 3D avatar data
-        await prefs.remove('lastAvatarId');
-        await prefs.remove('lastAvatarPngPath');
-        await prefs.remove('lastAvatarGlbPath');
+        await prefs.remove(_getKey('lastAvatarId'));
+        await prefs.remove(_getKey('lastAvatarPngPath'));
+        await prefs.remove(_getKey('lastAvatarGlbPath'));
       } else {
         // 3D avatar
-        await prefs.setString('lastAvatarPngPath', avatarPath);
+        await prefs.setString(_getKey('lastAvatarPngPath'), avatarPath);
         // Extract avatar ID from path
-        final fileName = avatarPath.split('\\').last;
+        final fileName = avatarPath.split(Platform.isWindows ? '\\' : '/').last;
         final avatarId = fileName.replaceAll('.png', '');
-        await prefs.setString('lastAvatarId', avatarId);
+        await prefs.setString(_getKey('lastAvatarId'), avatarId);
         
         // Check for GLB file
         final glbPath = avatarPath.replaceAll('.png', '.glb');
         if (File(glbPath).existsSync()) {
-          await prefs.setString('lastAvatarGlbPath', glbPath);
+          await prefs.setString(_getKey('lastAvatarGlbPath'), glbPath);
         }
         
         // Clear gallery image data
-        await prefs.remove('selectedGalleryAvatar');
+        await prefs.remove(_getKey('selectedGalleryAvatar'));
       }
       
-      print('Profile avatar saved: $avatarPath');
+      print('Profile avatar saved for user $_currentUserId: $avatarPath');
     } catch (e) {
       print('Error saving profile avatar: $e');
     }
@@ -81,23 +104,24 @@ class UserService extends ChangeNotifier {
   
   // Load saved profile avatar from SharedPreferences
   Future<void> _loadSavedGalleryAvatar() async {
+    if (_currentUserId == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       
       // First check for gallery image
-      String? savedAvatarPath = prefs.getString('selectedGalleryAvatar');
+      String? savedAvatarPath = prefs.getString(_getKey('selectedGalleryAvatar'));
       
       // If no gallery image, check for 3D avatar
       if (savedAvatarPath == null || !File(savedAvatarPath).existsSync()) {
-        savedAvatarPath = prefs.getString('lastAvatarPngPath');
+        savedAvatarPath = prefs.getString(_getKey('lastAvatarPngPath'));
       }
       
       if (savedAvatarPath != null && File(savedAvatarPath).existsSync()) {
         _selectedAvatar = savedAvatarPath;
-        print('Loaded saved profile avatar: $savedAvatarPath');
+        print('Loaded saved profile avatar for user $_currentUserId: $savedAvatarPath');
         notifyListeners();
       } else {
-        print('No valid saved profile avatar found');
+        print('No valid saved profile avatar found for user $_currentUserId');
       }
     } catch (e) {
       print('Error loading saved profile avatar: $e');
@@ -106,10 +130,11 @@ class UserService extends ChangeNotifier {
 
   // Load saved background preferences from SharedPreferences
   Future<void> _loadSavedBackgroundPreferences() async {
+    if (_currentUserId == null) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedBackgroundImage = prefs.getString('profileBackgroundImage');
-      final savedBackgroundColor = prefs.getInt('profileBackgroundColor');
+      final savedBackgroundImage = prefs.getString(_getKey('profileBackgroundImage'));
+      final savedBackgroundColor = prefs.getInt(_getKey('profileBackgroundColor'));
       
       if (savedBackgroundImage != null && File(savedBackgroundImage).existsSync()) {
         _backgroundImage = savedBackgroundImage;
@@ -131,6 +156,8 @@ class UserService extends ChangeNotifier {
     String? backgroundImage,
     int? backgroundColor,
   }) async {
+    if (_currentUserId == null) return;
+    
     if (displayName != null) _displayName = displayName;
     if (bio != null) _bio = bio;
     if (age != null) _age = age;
@@ -142,10 +169,10 @@ class UserService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (backgroundImage != null) {
-        await prefs.setString('profileBackgroundImage', backgroundImage);
+        await prefs.setString(_getKey('profileBackgroundImage'), backgroundImage);
       }
       if (backgroundColor != null) {
-        await prefs.setInt('profileBackgroundColor', backgroundColor);
+        await prefs.setInt(_getKey('profileBackgroundColor'), backgroundColor);
       }
     } catch (e) {
       print('Error saving background preferences: $e');

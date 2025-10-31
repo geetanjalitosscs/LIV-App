@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_navigation.dart';
 import '../services/avtar_service.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart';
 import '../theme/liv_theme.dart';
 
 class AvatarMainScreen extends StatefulWidget {
@@ -274,7 +275,17 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
 
   Future<void> _loadAllAvatars() async {
     try {
-      final windowsUploads = AppPaths.windowsUploads;
+      // Get user-specific directory
+      final userId = AuthService.instance.userId;
+      if (userId == null) {
+        print('User not logged in');
+        setState(() {
+          _allAvatars = [];
+        });
+        return;
+      }
+      
+      final windowsUploads = AppPaths.getWindowsUploadsPath(userId);
       final uploadsDir = Directory(windowsUploads);
       
       print('Loading avatars from: $windowsUploads');
@@ -287,20 +298,35 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
         return;
       }
       
-      // Get the currently selected avatar ID
+      // Get the currently selected avatar ID from SharedPreferences (most reliable source)
       String? currentAvatarId;
       try {
-        final currentAvatar = await _avatarFuture;
-        if (currentAvatar != null && currentAvatar['id'] != null) {
-          currentAvatarId = currentAvatar['id'];
-          print('Current profile avatar ID: $currentAvatarId');
+        // First try to get from SharedPreferences (the actual saved profile avatar)
+        final prefs = await SharedPreferences.getInstance();
+        final userId = AuthService.instance.userId;
+        String? savedAvatarId;
+        if (userId != null) {
+          savedAvatarId = prefs.getString('user_${userId}_lastAvatarId');
+        }
+        
+        // If found in SharedPreferences, use it
+        if (savedAvatarId != null && savedAvatarId.isNotEmpty) {
+          currentAvatarId = savedAvatarId;
+          print('Current profile avatar ID from SharedPreferences: $currentAvatarId');
+        } else {
+          // Fallback to _avatarFuture
+          final currentAvatar = await _avatarFuture;
+          if (currentAvatar != null && currentAvatar['id'] != null) {
+            currentAvatarId = currentAvatar['id'];
+            print('Current profile avatar ID from _avatarFuture: $currentAvatarId');
+          }
         }
       } catch (e) {
         print('Error getting current avatar: $e');
       }
       
-      // Check if user has selected a gallery image
-      final userService = Provider.of<UserService>(context, listen: false);
+      // Check if user has selected a gallery image (not from Ready Player Me)
+      final userService = UserService.instance;
       final bool hasGalleryImage = userService.selectedAvatar != null && 
           File(userService.selectedAvatar!).existsSync();
       
@@ -311,6 +337,8 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           .toList();
       
       print('Found ${pngFiles.length} PNG files');
+      print('Current profile avatar ID to exclude: $currentAvatarId');
+      print('Has gallery image: $hasGalleryImage');
       
       if (pngFiles.isNotEmpty) {
         pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
@@ -320,8 +348,6 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           final avatarId = fileName.replaceAll('.png', '');
           final glbPath = '$windowsUploads\\$avatarId.glb';
           
-          print('Processing avatar: $avatarId');
-          
           return {
             'id': avatarId,
             'glb': File(glbPath).existsSync() ? glbPath : null,
@@ -330,11 +356,15 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           };
         }).toList();
         
-        // Filter out the currently selected profile avatar only if no gallery image is selected
+        // Always filter out the currently selected Ready Player Me profile avatar
+        // (Gallery images are stored elsewhere and won't be in this list anyway)
         final filteredAvatars = avatarList.where((avatar) {
-          // If gallery image is selected, include all avatars in the gallery
-          // If no gallery image is selected, exclude the current profile avatar
-          return hasGalleryImage || avatar['id'] != currentAvatarId;
+          // Always exclude the current profile avatar if it matches
+          final shouldInclude = avatar['id'] != currentAvatarId;
+          if (!shouldInclude) {
+            print('Filtering out avatar: ${avatar['id']} (matches current profile avatar)');
+          }
+          return shouldInclude;
         }).toList();
         
         print('Setting ${filteredAvatars.length} avatars (${hasGalleryImage ? 'including' : 'excluding'} current profile avatar)');

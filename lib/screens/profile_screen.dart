@@ -108,8 +108,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  // Helper method to get the appropriate profile image
-  ImageProvider _getProfileImage(UserService userService) {
+  // Helper method to get the appropriate profile image (returns null if no avatar)
+  ImageProvider? _getProfileImage(UserService userService) {
     // First check if user has a selected avatar from UserService
     if (userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()) {
       return FileImage(File(userService.selectedAvatar!));
@@ -126,9 +126,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     else if (_selectedImageBytes != null) {
       return MemoryImage(_selectedImageBytes!);
     } 
-    // Finally use default placeholder
+    // Return null if no avatar (will show grey placeholder)
     else {
-      return const AssetImage('assets/images/pngtree-google.png');
+      return null;
     }
   }
 
@@ -176,15 +176,23 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       if (pickedFile != null) {
         final Uint8List imageBytes = await pickedFile.readAsBytes();
         
-        // Save the image to uploads folder (same as 3D avatars)
-        const String uploadsPath = AppPaths.windowsUploads;
-        final Directory uploadsDir = Directory(uploadsPath);
-        if (!uploadsDir.existsSync()) {
-          await uploadsDir.create(recursive: true);
+        // Get user-specific uploads directory
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final userId = authService.userId;
+        if (userId == null) {
+          _showErrorSnackBar('Please log in to save images');
+          return;
+        }
+        
+        final baseDir = await AppPaths.resolveUploadsDirectory();
+        final userDir = Directory('${baseDir.path}${Platform.isWindows ? '\\' : '/'}user_$userId');
+        if (!await userDir.exists()) {
+          await userDir.create(recursive: true);
         }
         
         final String fileName = 'gallery_${DateTime.now().millisecondsSinceEpoch}.png';
-        final String filePath = '$uploadsPath\\$fileName';
+        final separator = Platform.isWindows ? '\\' : '/';
+        final String filePath = '${userDir.path}$separator$fileName';
         final File imageFile = File(filePath);
         await imageFile.writeAsBytes(imageBytes);
         
@@ -205,26 +213,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  // Show success snackbar
+  // Show success popup
   void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    LivPopupMessage.showSuccess(context, message);
   }
 
-  // Show error snackbar
+  // Show error popup
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    LivPopupMessage.showError(context, message);
   }
 
   // Pick image from camera
@@ -552,14 +548,24 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                   CircleAvatar(
                                     radius: 60,
                                     backgroundColor: LivTheme.glassmorphicLightBorder,
-                                    child: CircleAvatar(
-                                      radius: 55,
-                                      backgroundImage: _getProfileImage(userService),
-                                      onBackgroundImageError: (exception, stackTrace) {
-                                        // Handle error if needed
-                                        print('Profile image error: $exception');
-                                      },
-                                    ),
+                                    child: _getProfileImage(userService) != null
+                                        ? CircleAvatar(
+                                            radius: 55,
+                                            backgroundImage: _getProfileImage(userService)!,
+                                            onBackgroundImageError: (exception, stackTrace) {
+                                              // Handle error if needed
+                                              print('Profile image error: $exception');
+                                            },
+                                          )
+                                        : CircleAvatar(
+                                            radius: 55,
+                                            backgroundColor: Colors.grey[300],
+                                            child: Icon(
+                                              Icons.person,
+                                              size: 55,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
                                   ),
                                   Positioned(
                                     bottom: 0,
@@ -581,64 +587,86 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           
                           const SizedBox(height: 20),
                           
-                          // Profile Info
-                          Text(
-                            userService.displayName,
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${userService.age} years old',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.location_on,
-                                color: Colors.white70,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                userService.location,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white70,
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 24),
-
-                          // About Section
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: LivDecorations.glassmorphicLightCard,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'About Me',
-                                  style: LivTheme.getGlassmorphicSubtitle(context),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  userService.bio,
-                                  style: LivTheme.getGlassmorphicBodySecondary(context).copyWith(height: 1.4),
-                                ),
-                              ],
-                            ),
+                          // Profile Info - Get from database (AuthService)
+                          Consumer<AuthService>(
+                            builder: (context, authService, child) {
+                              final userData = authService.userData;
+                              
+                              // Get data from database, fallback to UserService if not available
+                              final displayName = userData?['full_name']?.toString() ?? userService.displayName;
+                              final ageValue = userData?['age'] != null 
+                                  ? int.tryParse(userData!['age'].toString()) ?? userService.age
+                                  : userService.age;
+                              final location = userData?['location']?.toString() ?? userService.location;
+                              final bio = userService.bio.isNotEmpty 
+                                  ? userService.bio 
+                                  : (userData?['bio']?.toString() ?? 'Looking for new friends!');
+                              
+                              return Column(
+                                children: [
+                                  // Full Name from Database
+                                  Text(
+                                    displayName,
+                                    style: const TextStyle(
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Age from Database
+                                  Text(
+                                    '$ageValue years old',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Location from Database
+                                  if (location.isNotEmpty)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on,
+                                          color: Colors.white70,
+                                          size: 16,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          location,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white70,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  const SizedBox(height: 24),
+                                  // About Section - Bio from UserService (local preferences)
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: LivDecorations.glassmorphicLightCard,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'About Me',
+                                          style: LivTheme.getGlassmorphicSubtitle(context),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          bio,
+                                          style: LivTheme.getGlassmorphicBodySecondary(context).copyWith(height: 1.4),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                           
                           const SizedBox(height: 24),
@@ -652,11 +680,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                   child: Container(
                                     decoration: LivDecorations.editProfileButton,
                                     child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        Navigator.push(
+                                      onPressed: () async {
+                                        final result = await Navigator.push(
                                           context,
                                           MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                                         );
+                                        // Refresh user data if profile was updated
+                                        if (result == true) {
+                                          await AuthService.instance.refreshUserData();
+                                        }
                                       },
                                       icon: const Icon(Icons.edit, color: Colors.white),
                                       label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),

@@ -30,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen>
   final _signUpPasswordController = TextEditingController();
   final _signUpConfirmPasswordController = TextEditingController();
   final _signUpAgeController = TextEditingController();
+  final _signUpLocationController = TextEditingController();
   String? _signUpGender;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -103,6 +104,7 @@ class _LoginScreenState extends State<LoginScreen>
     _signUpPasswordController.dispose();
     _signUpConfirmPasswordController.dispose();
     _signUpAgeController.dispose();
+    _signUpLocationController.dispose();
     super.dispose();
   }
   
@@ -437,6 +439,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                     icon: Icons.lock_outline,
                                                     obscureText: _obscurePassword,
                                                     keyboardType: TextInputType.visiblePassword,
+                                                    inputFormatters: [
+                                                      // Prevent pasting invalid characters like file paths
+                                                      FilteringTextInputFormatter.deny(RegExp(r'[\\/:*?"<>|]')),
+                                                    ],
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -454,6 +460,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                       }
                                                       if (value.length < 6) {
                                                         return 'Password must be at least 6 characters';
+                                                      }
+                                                      // Additional check to prevent file paths
+                                                      if (value.contains('\\') || value.contains('/') || value.contains(':')) {
+                                                        return 'Invalid password format';
                                                       }
                                                       return null;
                                                     },
@@ -532,6 +542,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                     icon: Icons.lock_outline,
                                                     obscureText: _obscurePassword,
                                                     keyboardType: TextInputType.visiblePassword,
+                                                    inputFormatters: [
+                                                      // Prevent pasting invalid characters like file paths
+                                                      FilteringTextInputFormatter.deny(RegExp(r'[\\/:*?"<>|]')),
+                                                    ],
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -550,6 +564,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                       if (value.length < 6) {
                                                         return 'Password must be at least 6 characters';
                                                       }
+                                                      // Additional check to prevent file paths
+                                                      if (value.contains('\\') || value.contains('/') || value.contains(':')) {
+                                                        return 'Invalid password format';
+                                                      }
                                                       return null;
                                                     },
                                                   ),
@@ -560,6 +578,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                     icon: Icons.lock_outline,
                                                     obscureText: _obscureConfirmPassword,
                                                     keyboardType: TextInputType.visiblePassword,
+                                                    inputFormatters: [
+                                                      // Prevent pasting invalid characters like file paths
+                                                      FilteringTextInputFormatter.deny(RegExp(r'[\\/:*?"<>|]')),
+                                                    ],
                                                     suffixIcon: IconButton(
                                                       icon: Icon(
                                                         _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -574,6 +596,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                     validator: (value) {
                                                       if (value == null || value.isEmpty) {
                                                         return 'Please confirm password';
+                                                      }
+                                                      // Additional check to prevent file paths
+                                                      if (value.contains('\\') || value.contains('/') || value.contains(':')) {
+                                                        return 'Invalid password format';
                                                       }
                                                       if (value != _signUpPasswordController.text) {
                                                         return 'Passwords does not matched';
@@ -624,6 +650,22 @@ class _LoginScreenState extends State<LoginScreen>
                                                       }
                                                       if (age < 18 || age > 99) {
                                                         return 'Enter age (18-99)';
+                                                      }
+                                                      return null;
+                                                    },
+                                                  ),
+                                                  const SizedBox(height: 20),
+                                                  _buildInputField(
+                                                    controller: _signUpLocationController,
+                                                    label: 'Location',
+                                                    icon: Icons.location_on_outlined,
+                                                    textCapitalization: TextCapitalization.words,
+                                                    validator: (value) {
+                                                      if (value == null || value.trim().isEmpty) {
+                                                        return 'Please enter location';
+                                                      }
+                                                      if (value.trim().length < 2) {
+                                                        return 'Location must be at least 2 characters';
                                                       }
                                                       return null;
                                                     },
@@ -820,6 +862,7 @@ class _LoginScreenState extends State<LoginScreen>
             phone: _signUpPhoneController.text.trim(),
             gender: _signUpGender ?? '',
             age: age,
+            location: _signUpLocationController.text.trim(),
           );
         }
         
@@ -840,13 +883,17 @@ class _LoginScreenState extends State<LoginScreen>
   
   Future<void> _handleGoogleSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final success = await authService.signInWithGoogle();
     
-    if (mounted) {
-      if (success) {
+    try {
+      final success = await authService.signInWithGoogle(context: context);
+      
+      if (mounted && success) {
         LivPopupMessage.showSuccess(context, 'Google Sign-In successful! Welcome!');
-      } else {
-        LivPopupMessage.showError(context, 'Google Sign-In failed. Please try again.');
+      }
+    } catch (e) {
+      if (mounted) {
+        final errorMessage = e.toString().replaceFirst('Exception: ', '').replaceFirst('Google Sign-In failed: ', '');
+        LivPopupMessage.showError(context, errorMessage);
       }
     }
   }

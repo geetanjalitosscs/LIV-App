@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           );
                         } else {
-                          // Fallback to default avatar
+                          // Fallback to simple grey person icon placeholder
                           return Container(
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
@@ -114,10 +114,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: CircleAvatar(
                               radius: 18,
-                              backgroundImage: AssetImage(userService.currentAvatar),
-                              onBackgroundImageError: (exception, stackTrace) {
-                                // Handle error if needed
-                              },
+                              backgroundColor: Colors.grey[300],
+                              child: Icon(
+                                Icons.person,
+                                size: 18,
+                                color: Colors.grey[600],
+                              ),
                             ),
                           );
                         }
@@ -511,13 +513,40 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () => _navigateToScreen(context, const EditProfileScreen()),
                         child: Stack(
                           children: [
-                            CircleAvatar(
-                              radius: 60,
-                              backgroundImage: AssetImage(userService.currentAvatar),
-                              onBackgroundImageError: (exception, stackTrace) {
-                                // Handle error if needed
-                              },
-                            ),
+                            // First check if user has a selected avatar
+                            userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()
+                                ? CircleAvatar(
+                                    radius: 60,
+                                    backgroundImage: FileImage(File(userService.selectedAvatar!)),
+                                    onBackgroundImageError: (exception, stackTrace) {
+                                      // Handle error if needed
+                                    },
+                                  )
+                                : FutureBuilder<String?>(
+                                    future: AvatarService.getAvatarImagePath(),
+                                    builder: (context, snapshot) {
+                                      if (snapshot.hasData && snapshot.data != null && File(snapshot.data!).existsSync()) {
+                                        return CircleAvatar(
+                                          radius: 60,
+                                          backgroundImage: FileImage(File(snapshot.data!)),
+                                          onBackgroundImageError: (exception, stackTrace) {
+                                            // Handle error if needed
+                                          },
+                                        );
+                                      } else {
+                                        // Show simple grey person icon placeholder
+                                        return CircleAvatar(
+                                          radius: 60,
+                                          backgroundColor: Colors.grey[300],
+                                          child: Icon(
+                                            Icons.person,
+                                            size: 60,
+                                            color: Colors.grey[600],
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
                             Positioned(
                               bottom: 0,
                               right: 0,

@@ -11,6 +11,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     gender VARCHAR(15) NOT NULL,
     age INT NOT NULL,
+    location VARCHAR(100) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
 
@@ -33,6 +34,7 @@ $phone = $conn->real_escape_string(trim($input['phone']));
 $password = password_hash($input['password'], PASSWORD_DEFAULT);
 $gender = $conn->real_escape_string(trim($input['gender']));
 $age = (int)$input['age'];
+$location = isset($input['location']) ? $conn->real_escape_string(trim($input['location'])) : '';
 
 // Check for duplicate email
 $chk = $conn->query("SELECT id FROM users WHERE email='$email' LIMIT 1");
@@ -40,12 +42,16 @@ if ($chk && $chk->num_rows > 0) {
     echo json_encode(["success" => false, "error" => "Email already registered."]); exit;
 }
 
-$sql = "INSERT INTO users (full_name, email, phone, password, gender, age) VALUES (?, ?, ?, ?, ?, ?)";
+$sql = "INSERT INTO users (full_name, email, phone, password, gender, age, location) VALUES (?, ?, ?, ?, ?, ?, ?)";
 $stmt = $conn->prepare($sql);
-$stmt->bind_param('sssssi', $full_name, $email, $phone, $password, $gender, $age);
+$stmt->bind_param('sssssis', $full_name, $email, $phone, $password, $gender, $age, $location);
 
 if ($stmt->execute()) {
-    echo json_encode(["success" => true]);
+    $userId = $stmt->insert_id;
+    // Fetch the created user data
+    $getUser = $conn->query("SELECT id, full_name, email, phone, gender, age, location, created_at FROM users WHERE id=$userId LIMIT 1");
+    $user = $getUser->fetch_assoc();
+    echo json_encode(["success" => true, "user" => $user]);
 } else {
     echo json_encode(["success" => false, "error" => $stmt->error]);
 }

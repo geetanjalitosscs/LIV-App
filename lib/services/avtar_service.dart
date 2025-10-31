@@ -10,18 +10,45 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/paths.dart';
+import 'auth_service.dart';
 
 class AvatarService {
   static const String _baseUrl = 'https://readyplayer.me/avatar?frameApi';
 
+  /// Get user-specific key for SharedPreferences
+  static String _getKey(String key) {
+    final userId = AuthService.instance.userId;
+    if (userId == null) return key;
+    return 'user_${userId}_$key';
+  }
+
+  /// Get user-specific uploads directory
+  static Future<Directory> _getUserUploadsDirectory() async {
+    // AppPaths.resolveUploadsDirectory() already returns the user-specific directory
+    // (e.g., C:\xampp\htdocs\Liv-App\avtars\Uploads\user_{userId})
+    // So we just return it directly without adding user_$userId again
+    final baseDir = await AppPaths.resolveUploadsDirectory();
+    
+    if (!await baseDir.exists()) {
+      await baseDir.create(recursive: true);
+    }
+    
+    return baseDir;
+  }
+
   /// Load saved avatar from local storage
   static Future<Map<String, String?>> loadSavedAvatar() async {
     try {
+      final userId = AuthService.instance.userId;
+      if (userId == null) {
+        return {'id': null, 'glb': null, 'png': null};
+      }
+
       // First check SharedPreferences for the selected profile avatar
       final prefs = await SharedPreferences.getInstance();
-      final selectedAvatarId = prefs.getString('lastAvatarId');
-      final selectedPngPath = prefs.getString('lastAvatarPngPath');
-      final selectedGlbPath = prefs.getString('lastAvatarGlbPath');
+      final selectedAvatarId = prefs.getString(_getKey('lastAvatarId'));
+      final selectedPngPath = prefs.getString(_getKey('lastAvatarPngPath'));
+      final selectedGlbPath = prefs.getString(_getKey('lastAvatarGlbPath'));
       
       if (selectedAvatarId != null && selectedPngPath != null && File(selectedPngPath).existsSync()) {
         // print('Using selected profile avatar: $selectedAvatarId'); // Removed to prevent log spam
@@ -32,11 +59,11 @@ class AvatarService {
         };
       }
       
-      // Fallback: Get all PNG files and find the most recent one
-      final uploadsDir = Directory(AppPaths.windowsUploads);
+      // Fallback: Get all PNG files from user directory and find the most recent one
+      final uploadsDir = await _getUserUploadsDirectory();
       
       if (!uploadsDir.existsSync()) {
-        print('Uploads directory does not exist');
+        print('User uploads directory does not exist for user $userId');
         return {'id': null, 'glb': null, 'png': null};
       }
       
@@ -48,7 +75,7 @@ class AvatarService {
           .toList();
       
       if (pngFiles.isEmpty) {
-        print('No PNG files found in uploads folder');
+        print('No PNG files found in user uploads folder for user $userId');
         return {'id': null, 'glb': null, 'png': null};
       }
       
@@ -57,9 +84,10 @@ class AvatarService {
       final latestPng = pngFiles.first;
       
       // Extract avatar ID from filename
-      final fileName = latestPng.path.split('\\').last;
+      final fileName = latestPng.path.split(Platform.isWindows ? '\\' : '/').last;
       final avatarId = fileName.replaceAll('.png', '');
-      final glbPath = '${uploadsDir.path}\\$avatarId.glb';
+      final separator = Platform.isWindows ? '\\' : '/';
+      final glbPath = '${uploadsDir.path}$separator$avatarId.glb';
       
       // print('Found latest avatar: $avatarId'); // Removed to prevent log spam
       return {
@@ -103,19 +131,26 @@ class AvatarService {
       final String fileName = segments.isNotEmpty ? segments.last : 'avatar.glb';
       final String avatarId = fileName.replaceAll('.glb', '');
       
-      print('Downloading avatar from: $url');
-      print('Avatar ID: $avatarId');
+      final userId = AuthService.instance.userId;
+      if (userId == null) {
+        throw Exception('User must be logged in to download avatars');
+      }
 
-      final uploads = await AppPaths.resolveUploadsDirectory();
+      print('Downloading avatar from: $url');
+      print('Avatar ID: $avatarId for user: $userId');
+
+      final uploads = await _getUserUploadsDirectory();
       
-      print('Saving to directory: ${uploads.path}');
+      print('Saving to user directory: ${uploads.path}');
       if (!await uploads.exists()) {
         await uploads.create(recursive: true);
       }
 
+      final separator = Platform.isWindows ? '\\' : '/';
+
       // Download GLB
       final glbResp = await http.get(Uri.parse(url));
-      final glbPath = '${uploads.path}/$fileName';
+      final glbPath = '${uploads.path}$separator$fileName';
       await File(glbPath).writeAsBytes(glbResp.bodyBytes);
 
       // Try to download PNG preview using the same id
@@ -124,17 +159,17 @@ class AvatarService {
       try {
         final pngResp = await http.get(pngUrl);
         if (pngResp.statusCode == 200) {
-          pngPath = '${uploads.path}/$avatarId.png';
+          pngPath = '${uploads.path}$separator$avatarId.png';
           await File(pngPath).writeAsBytes(pngResp.bodyBytes);
         }
       } catch (_) {}
 
-      // Persist references
+      // Persist references with user-specific keys
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastAvatarId', avatarId);
-      await prefs.setString('lastAvatarGlbPath', glbPath);
+      await prefs.setString(_getKey('lastAvatarId'), avatarId);
+      await prefs.setString(_getKey('lastAvatarGlbPath'), glbPath);
       if (pngPath != null) {
-        await prefs.setString('lastAvatarPngPath', pngPath);
+        await prefs.setString(_getKey('lastAvatarPngPath'), pngPath);
       }
 
       if (!context.mounted) return;

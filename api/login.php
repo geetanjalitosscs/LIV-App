@@ -15,7 +15,7 @@ if (empty($input['email']) || empty($input['password'])) {
 $email = strtolower($conn->real_escape_string(trim($input['email'])));
 $password = $input['password'];
 
-$sql = "SELECT id, full_name, email, phone, password, gender, age, created_at FROM users WHERE email=? LIMIT 1";
+$sql = "SELECT id, full_name, email, phone, password, gender, age, location, created_at FROM users WHERE email=? LIMIT 1";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param('s', $email);
 $stmt->execute();

@@ -12,6 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart';
 
 // Custom dialog functions
 Future<void> _showErrorDialog(BuildContext context) async {
@@ -379,13 +380,19 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       print('Downloading avatar from: $url');
       print('Avatar ID: $avatarId');
 
+      // Use user-specific directory
+      final userId = AuthService.instance.userId;
+      if (userId == null) {
+        throw Exception('User must be logged in to save avatars');
+      }
+      
       Directory uploads;
       if (Platform.isWindows) {
-        // Save to requested absolute directory on Windows
-        uploads = Directory(AppPaths.windowsUploads);
+        // Save to user-specific directory on Windows
+        uploads = Directory(AppPaths.getWindowsUploadsPath(userId));
       } else {
         final dir = await getApplicationDocumentsDirectory();
-        uploads = Directory('${dir.path}/uploads');
+        uploads = Directory('${dir.path}/uploads/user_$userId');
       }
       
       print('Saving to directory: ${uploads.path}');
@@ -797,21 +804,38 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
         return;
       }
 
+      // Get user ID and create user-specific directory
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userId = authService.userId;
+      if (userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log in to save avatars')),
+          );
+        }
+        return;
+      }
+
       Directory uploads;
+      final separator = Platform.isWindows ? '\\' : '/';
+      
       if (!kIsWeb && Platform.isWindows) {
-        // Save to requested absolute directory on Windows
-        uploads = Directory(AppPaths.windowsUploads);
+        // AppPaths.resolveUploadsDirectory() already returns user-specific directory
+        // (e.g., C:\xampp\htdocs\Liv-App\avtars\Uploads\user_{userId})
+        uploads = await AppPaths.resolveUploadsDirectory();
       } else {
         final dir = await getApplicationDocumentsDirectory();
-        uploads = Directory('${dir.path}/uploads');
+        // For non-Windows, create user-specific directory
+        uploads = Directory('${dir.path}/uploads${separator}user_$userId');
       }
+      
       if (!await uploads.exists()) {
         await uploads.create(recursive: true);
       }
 
       // Download GLB
       final glbResp = await http.get(Uri.parse(avatarUrl!));
-      final glbPath = '${uploads.path}/$fileName';
+      final glbPath = '${uploads.path}$separator$fileName';
       await File(glbPath).writeAsBytes(glbResp.bodyBytes);
 
       // Try to download PNG preview using the same id (Ready Player Me serves a PNG preview)
@@ -820,17 +844,18 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       try {
         final pngResp = await http.get(pngUrl);
         if (pngResp.statusCode == 200) {
-          pngPath = '${uploads.path}/$avatarId.png';
+          pngPath = '${uploads.path}$separator$avatarId.png';
           await File(pngPath).writeAsBytes(pngResp.bodyBytes);
         }
       } catch (_) {}
 
-      // Persist references
+      // Persist references with user-specific keys
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastAvatarId', avatarId);
-      await prefs.setString('lastAvatarGlbPath', glbPath);
+      final userKey = (String key) => 'user_${userId}_$key';
+      await prefs.setString(userKey('lastAvatarId'), avatarId);
+      await prefs.setString(userKey('lastAvatarGlbPath'), glbPath);
       if (pngPath != null) {
-        await prefs.setString('lastAvatarPngPath', pngPath);
+        await prefs.setString(userKey('lastAvatarPngPath'), pngPath);
       }
 
       // Update UserService to set this as the selected avatar

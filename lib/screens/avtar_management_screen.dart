@@ -4,9 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'avtar_creator_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../widgets/bottom_navigation.dart';
 import '../theme/liv_theme.dart';
 import '../config/paths.dart';
+import '../services/auth_service.dart';
+import '../services/user_service.dart';
+import '../services/avtar_service.dart';
 
 class AvatarManagementScreen extends StatefulWidget {
   const AvatarManagementScreen({super.key});
@@ -30,12 +34,40 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
 
   Future<void> _loadAvatarHistory() async {
     try {
-      final windowsUploads = AppPaths.windowsUploads;
+      // Get user-specific directory
+      final userId = AuthService.instance.userId;
+      if (userId == null) {
+        print('User not logged in');
+        setState(() {
+          _avatarHistory = [];
+        });
+        return;
+      }
+      
+      final windowsUploads = AppPaths.getWindowsUploadsPath(userId);
       final uploadsDir = Directory(windowsUploads);
       
       if (!uploadsDir.existsSync()) {
         return;
       }
+      
+      // Get the currently selected profile avatar ID
+      String? currentAvatarId;
+      try {
+        final currentAvatar = await _avatarFuture;
+        if (currentAvatar != null && currentAvatar['id'] != null) {
+          currentAvatarId = currentAvatar['id'];
+          print('Current profile avatar ID: $currentAvatarId');
+        }
+      } catch (e) {
+        print('Error getting current avatar: $e');
+      }
+      
+      // Check if user has selected a gallery image (not from Ready Player Me)
+      // Use UserService.instance directly since it's a singleton
+      final userService = UserService.instance;
+      final bool hasGalleryImage = userService.selectedAvatar != null && 
+          File(userService.selectedAvatar!).existsSync();
       
       final pngFiles = uploadsDir
           .listSync()
@@ -46,19 +78,36 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
       if (pngFiles.isNotEmpty) {
         pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
         
+        final avatarList = pngFiles.map((file) {
+          final fileName = file.path.split('\\').last;
+          final avatarId = fileName.replaceAll('.png', '');
+          final glbPath = '$windowsUploads\\$avatarId.glb';
+          
+          return {
+            'id': avatarId,
+            'glb': File(glbPath).existsSync() ? glbPath : null,
+            'png': file.path,
+            'date': file.lastModifiedSync().toString(),
+          };
+        }).toList();
+        
+        // Always filter out the currently selected Ready Player Me profile avatar
+        // (Gallery images are stored elsewhere and won't be in this list anyway)
+        final filteredAvatars = avatarList.where((avatar) {
+          // Always exclude the current profile avatar if it matches
+          final shouldInclude = avatar['id'] != currentAvatarId;
+          if (!shouldInclude) {
+            print('Filtering out avatar: ${avatar['id']} (matches current profile avatar)');
+          }
+          return shouldInclude;
+        }).toList();
+        
         setState(() {
-          _avatarHistory = pngFiles.map((file) {
-            final fileName = file.path.split('\\').last;
-            final avatarId = fileName.replaceAll('.png', '');
-            final glbPath = '$windowsUploads\\$avatarId.glb';
-            
-            return {
-              'id': avatarId,
-              'glb': File(glbPath).existsSync() ? glbPath : null,
-              'png': file.path,
-              'date': file.lastModifiedSync().toString(),
-            };
-          }).toList();
+          _avatarHistory = filteredAvatars;
+        });
+      } else {
+        setState(() {
+          _avatarHistory = [];
         });
       }
     } catch (e) {
@@ -657,20 +706,22 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Avatar Settings'),
-          content: const Column(
+          content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.storage),
-                title: Text('Storage Location'),
-                subtitle: Text(AppPaths.windowsUploads),
+                leading: const Icon(Icons.storage),
+                title: const Text('Storage Location'),
+                subtitle: Text(AuthService.instance.userId != null 
+                    ? AppPaths.getWindowsUploadsPath(AuthService.instance.userId!) 
+                    : 'Not logged in'),
               ),
-              ListTile(
+              const ListTile(
                 leading: Icon(Icons.format_list_bulleted),
                 title: Text('Auto-save'),
                 subtitle: Text('Enabled'),
               ),
-              ListTile(
+              const ListTile(
                 leading: Icon(Icons.high_quality),
                 title: Text('Quality'),
                 subtitle: Text('High (PNG + GLB)'),
@@ -733,8 +784,15 @@ class _AvatarManagementScreenState extends State<AvatarManagementScreen> {
 
 Future<Map<String, String?>> _loadSavedAvatar() async {
   try {
-    // Scan the uploads folder for the most recent avatar
-    final windowsUploads = AppPaths.windowsUploads;
+    // Get user-specific directory
+    final userId = AuthService.instance.userId;
+    if (userId == null) {
+      print('User not logged in');
+      return {'id': null, 'glb': null, 'png': null};
+    }
+    
+    // Scan the user-specific uploads folder for the most recent avatar
+    final windowsUploads = AppPaths.getWindowsUploadsPath(userId);
     final uploadsDir = Directory(windowsUploads);
     
     if (!uploadsDir.existsSync()) {
