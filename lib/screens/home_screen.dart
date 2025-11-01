@@ -35,18 +35,45 @@ class _HomeScreenState extends State<HomeScreen> {
   final Map<int, int> _likeCounts = {};
   final Set<int> _likedUserIds = {};
   int? _lastLoadedUserId; // Track which user's likes were loaded
+  // Friend requests
+  List<Map<String, dynamic>> _friendRequests = [];
+  bool _isLoadingFriendRequests = false;
+  // Friends (accepted)
+  List<Map<String, dynamic>> _friends = [];
+  bool _isLoadingFriends = false;
   
   @override
   void initState() {
     super.initState();
     // Refresh avatar when screen loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {});
-      _loadAllUsers();
+      if (mounted) {
+        setState(() {});
+        // Load friends first, then users to ensure proper filtering
+        // Only if not already loading to prevent duplicate calls
+        if (!_isLoadingUsers) {
+          final authService = AuthService.instance;
+          if (authService.userId != null) {
+            _loadFriends().then((_) {
+              if (mounted && !_isLoadingUsers) {
+                _loadAllUsers();
+              }
+            });
+          } else {
+            _loadAllUsers();
+          }
+        }
+      }
     });
   }
   
   Future<void> _loadAllUsers() async {
+    // Prevent multiple simultaneous calls
+    if (_isLoadingUsers) {
+      print('Already loading users, skipping duplicate call');
+      return;
+    }
+    
     setState(() {
       _isLoadingUsers = true;
     });
@@ -54,6 +81,11 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final authService = AuthService.instance;
       final currentUserId = authService.userId;
+      
+      // Ensure friends are loaded first to properly filter Discover users
+      if (currentUserId != null && _friends.isEmpty && !_isLoadingFriends) {
+        await _loadFriends();
+      }
       
       print('Loading all users... Current User ID: $currentUserId');
       print('API URL: ${AppPaths.apiBaseUrl}/get_all_users.php');
@@ -74,8 +106,21 @@ class _HomeScreenState extends State<HomeScreen> {
         print('Parsed data: $data');
         
         if (data['success'] == true) {
-          final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
-          print('Loaded ${users.length} users');
+          final allUsers = List<Map<String, dynamic>>.from(data['users'] ?? []);
+          print('Loaded ${allUsers.length} users');
+          
+          // Filter out users who are already friends
+          final friendIds = _friends.map((f) {
+            final id = f['id'] != null ? int.tryParse(f['id'].toString()) : null;
+            return id;
+          }).whereType<int>().toSet();
+          final users = allUsers.where((user) {
+            final userId = user['id'] != null ? int.tryParse(user['id'].toString()) : null;
+            return userId != null && !friendIds.contains(userId);
+          }).toList();
+          
+          print('Filtered to ${users.length} users (excluded ${friendIds.length} friends)');
+          
           // Clear old avatar futures that are no longer needed
           final userIds = users.map((u) => u['id'] != null ? int.tryParse(u['id'].toString()) : null).whereType<int>().toSet();
           _avatarFutures.removeWhere((key, _) => !userIds.contains(key));
@@ -118,8 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh avatar when returning to this screen
-    setState(() {});
+    // Remove unnecessary setState to prevent lag
   }
   
   // Method to refresh the avatar display
@@ -150,10 +194,12 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_currentIndex == 3 && _allUsers.isNotEmpty) {
             print('Reloading likes immediately on Discover tab');
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              final userIds = _allUsers.map((u) => u['id'] != null ? int.tryParse(u['id'].toString()) : null).whereType<int>().toList();
-              if (userIds.isNotEmpty) {
-                _loadLikesData(userIds);
-                _lastLoadedUserId = currentUserId;
+              if (mounted && !_isLoadingUsers) {
+                final userIds = _allUsers.map((u) => u['id'] != null ? int.tryParse(u['id'].toString()) : null).whereType<int>().toList();
+                if (userIds.isNotEmpty) {
+                  _loadLikesData(userIds);
+                  _lastLoadedUserId = currentUserId;
+                }
               }
             });
           } else if (_currentIndex != 3) {
@@ -289,11 +335,32 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _currentIndex = index;
           });
+          // Load friend requests and friends when switching to Friends tab (index 1)
+          if (index == 1) {
+            final authService = AuthService.instance;
+            if (authService.userId != null) {
+              _loadFriendRequests();
+              _loadFriends();
+            }
+          }
           // Refresh users list when switching to Discover tab (index 3)
           if (index == 3) {
-            // Always reload users and likes when switching to Discover tab
-            // This ensures likes are fresh after login
-            _loadAllUsers(); // This will also load likes via _loadLikesData
+            // Only reload if not already loading to prevent duplicate calls
+            if (!_isLoadingUsers) {
+              // Always reload friends first, then users to ensure proper filtering
+              // This ensures likes are fresh after login
+              final authService = AuthService.instance;
+              if (authService.userId != null) {
+                // Load friends first, then load users (which will filter out friends)
+                _loadFriends().then((_) {
+                  if (mounted && _currentIndex == 3 && !_isLoadingUsers) {
+                    _loadAllUsers(); // This will also load likes via _loadLikesData
+                  }
+                });
+              } else {
+                _loadAllUsers(); // This will also load likes via _loadLikesData
+              }
+            }
           }
         },
       ),
@@ -520,36 +587,374 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
     
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 16.0 : 24.0,
-          vertical: 16.0,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            Text(
-              'Your Friends',
-              style: LivTheme.getBlackTitle(context).copyWith(
-                fontSize: isSmallScreen ? 24 : 28,
-                fontWeight: FontWeight.bold,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmallScreen ? 16.0 : 24.0,
+                vertical: 16.0,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Your Friends',
+                        style: LivTheme.getBlackTitle(context).copyWith(
+                          fontSize: isSmallScreen ? 24 : 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () async {
+                            // Prevent multiple clicks
+                            if (_isLoadingFriendRequests || _isLoadingFriends) return;
+                            final authService = AuthService.instance;
+                            if (authService.userId != null) {
+                              await _loadFriendRequests();
+                              await _loadFriends();
+                            }
+                          },
+                          child: Container(
+                            width: isSmallScreen ? 36 : 40,
+                            height: isSmallScreen ? 36 : 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.15),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: (_isLoadingFriendRequests || _isLoadingFriends)
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh, color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Friend Requests Section
+                  if (_friendRequests.isNotEmpty || _isLoadingFriendRequests) ...[
+                    Text(
+                      'Friend Requests',
+                      style: LivTheme.getBlackTitle(context).copyWith(
+                        fontSize: isSmallScreen ? 20 : 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFriendRequestsList(),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  // // Friends List
+                  // Text(
+                  //   'Friends',
+                  //   style: LivTheme.getBlackTitle(context).copyWith(
+                  //     fontSize: isSmallScreen ? 20 : 24,
+                  //     fontWeight: FontWeight.w600,
+                  //   ),
+                  // ),
+                  const SizedBox(height: 12),
+                  _buildFriendsList(),
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 5,
-              itemBuilder: (context, index) {
-                return _buildMatchCard(index);
-              },
-            ),
-            const SizedBox(height: 20),
-          ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildFriendRequestsList() {
+    if (_isLoadingFriendRequests) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
         ),
+      );
+    }
+    
+    if (_friendRequests.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: LivDecorations.glassmorphicCard,
+        child: Center(
+          child: Text(
+            'No friend requests',
+            style: LivTheme.getBlackBody(context),
+          ),
+        ),
+      );
+    }
+    
+    return Column(
+      children: _friendRequests.map((request) => _buildFriendRequestCard(request)).toList(),
+    );
+  }
+  
+  Widget _buildFriendRequestCard(Map<String, dynamic> request) {
+    final requesterId = request['requester_id'] as int;
+    final fullName = request['full_name']?.toString() ?? 'User';
+    final age = request['age'] != null ? int.tryParse(request['age'].toString()) : null;
+    final location = request['location']?.toString() ?? '';
+    
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+    final isVerySmallScreen = screenSize.width < 400;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
+      decoration: LivDecorations.glassmorphicCard,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 400;
+          
+          if (isNarrow) {
+            // Stack vertically for very small screens
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    // Avatar
+                    FutureBuilder<String?>(
+                      key: ValueKey('fr_avatar_$requesterId'),
+                      future: _getUserAvatarFuture(requesterId),
+                      builder: (context, snapshot) {
+                        final avatarPath = snapshot.data;
+                        if (avatarPath != null && File(avatarPath).existsSync()) {
+                          return CircleAvatar(
+                            radius: isSmallScreen ? 25 : 30,
+                            backgroundImage: FileImage(File(avatarPath)),
+                            onBackgroundImageError: (exception, stackTrace) {},
+                          );
+                        }
+                        return CircleAvatar(
+                          radius: isSmallScreen ? 25 : 30,
+                          backgroundColor: Colors.grey[300],
+                          child: Icon(
+                            Icons.person,
+                            size: isSmallScreen ? 25 : 30,
+                            color: Colors.grey[600],
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(width: isSmallScreen ? 12 : 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: LivTheme.getBlackTitle(context).copyWith(
+                              fontSize: isSmallScreen ? 14 : 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (age != null || location.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              [
+                                if (age != null) '$age years',
+                                if (location.isNotEmpty) location,
+                              ].join(' • '),
+                              style: LivTheme.getBlackBody(context).copyWith(
+                                fontSize: isSmallScreen ? 12 : 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Buttons row
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _respondToFriendRequest(request['request_id'] as int, 'accept');
+                        },
+                        icon: const Icon(Icons.check, size: 16),
+                        label: Text(
+                          isVerySmallScreen ? 'Accept' : 'Accept',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: LivTheme.accentGreen,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isVerySmallScreen ? 8 : 12,
+                            vertical: isSmallScreen ? 6 : 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          _respondToFriendRequest(request['request_id'] as int, 'reject');
+                        },
+                        icon: const Icon(Icons.close, size: 16),
+                        label: Text(
+                          isVerySmallScreen ? 'Reject' : 'Reject',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: LivTheme.accentRed,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isVerySmallScreen ? 8 : 12,
+                            vertical: isSmallScreen ? 6 : 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          } else {
+            // Horizontal layout for larger screens
+            return Row(
+              children: [
+                // Avatar
+                FutureBuilder<String?>(
+                  key: ValueKey('fr_avatar_$requesterId'),
+                  future: _getUserAvatarFuture(requesterId),
+                  builder: (context, snapshot) {
+                    final avatarPath = snapshot.data;
+                    if (avatarPath != null && File(avatarPath).existsSync()) {
+                      return CircleAvatar(
+                        radius: isSmallScreen ? 25 : 30,
+                        backgroundImage: FileImage(File(avatarPath)),
+                        onBackgroundImageError: (exception, stackTrace) {},
+                      );
+                    }
+                    return CircleAvatar(
+                      radius: isSmallScreen ? 25 : 30,
+                      backgroundColor: Colors.grey[300],
+                      child: Icon(
+                        Icons.person,
+                        size: isSmallScreen ? 25 : 30,
+                        color: Colors.grey[600],
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(width: isSmallScreen ? 12 : 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        fullName,
+                        style: LivTheme.getBlackTitle(context).copyWith(
+                          fontSize: isSmallScreen ? 14 : 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (age != null || location.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (age != null) '$age years',
+                            if (location.isNotEmpty) location,
+                          ].join(' • '),
+                          style: LivTheme.getBlackBody(context).copyWith(
+                            fontSize: isSmallScreen ? 12 : 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(width: isSmallScreen ? 8 : 12),
+                // Accept button
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _respondToFriendRequest(request['request_id'] as int, 'accept');
+                    },
+                    icon: Icon(Icons.check, size: isSmallScreen ? 16 : 18),
+                    label: Text(
+                      isVerySmallScreen ? 'Accept' : 'Accept',
+                      style: TextStyle(fontSize: isSmallScreen ? 11 : 12),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: LivTheme.accentGreen,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 8 : 12,
+                        vertical: isSmallScreen ? 6 : 8,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: isSmallScreen ? 6 : 8),
+                // Reject button
+                Flexible(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _respondToFriendRequest(request['request_id'] as int, 'reject');
+                    },
+                    icon: Icon(Icons.close, size: isSmallScreen ? 16 : 18),
+                    label: Text(
+                      isVerySmallScreen ? 'Reject' : 'Reject',
+                      style: TextStyle(fontSize: isSmallScreen ? 11 : 12),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: LivTheme.accentRed,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 8 : 12,
+                        vertical: isSmallScreen ? 6 : 8,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+        },
       ),
     );
   }
@@ -569,12 +974,45 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
-            Text(
-              'Messages',
-              style: LivTheme.getBlackTitle(context).copyWith(
-                fontSize: isSmallScreen ? 24 : 28,
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Messages',
+                  style: LivTheme.getBlackTitle(context).copyWith(
+                    fontSize: isSmallScreen ? 24 : 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      // Refresh messages (placeholder for future implementation)
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Messages refreshed'),
+                          duration: Duration(seconds: 1),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: isSmallScreen ? 36 : 40,
+                      height: isSmallScreen ? 36 : 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.15),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             ListView.builder(
@@ -623,28 +1061,43 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
                       ),
-                      IconButton(
-                        onPressed: () {
-                          _loadAllUsers();
-                        },
-                        icon: _isLoadingUsers
-                            ? SizedBox(
-                                width: isSmallScreen ? 20 : 24,
-                                height: isSmallScreen ? 20 : 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                                size: isSmallScreen ? 20 : 24,
+                      MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () async {
+                            // Prevent multiple clicks
+                            if (_isLoadingUsers) return;
+                            // Reload friends first to ensure proper filtering
+                            final authService = AuthService.instance;
+                            if (authService.userId != null) {
+                              await _loadFriends();
+                            }
+                            if (mounted && !_isLoadingUsers) {
+                              _loadAllUsers();
+                            }
+                          },
+                          child: Container(
+                            width: isSmallScreen ? 36 : 40,
+                            height: isSmallScreen ? 36 : 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.15),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 1,
                               ),
-                        tooltip: 'Refresh',
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
-                          padding: const EdgeInsets.all(8),
+                            ),
+                            child: _isLoadingUsers
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  )
+                                : const Icon(Icons.refresh, color: Colors.white, size: 20),
+                          ),
                         ),
                       ),
                     ],
@@ -687,8 +1140,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               TextButton.icon(
-                                onPressed: () {
-                                  _loadAllUsers();
+                                onPressed: () async {
+                                  // Prevent multiple clicks
+                                  if (_isLoadingUsers) return;
+                                  // Reload friends first to ensure proper filtering
+                                  final authService = AuthService.instance;
+                                  if (authService.userId != null) {
+                                    await _loadFriends();
+                                  }
+                                  if (mounted && !_isLoadingUsers) {
+                                    _loadAllUsers();
+                                  }
                                 },
                                 icon: const Icon(Icons.refresh, color: Colors.white70),
                                 label: const Text(
@@ -1060,163 +1522,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildMatchCard(int index) {
-    final avatars = [
-      'assets/avatars/Gemini_Generated_Image_1x9rce1x9rce1x9r.png',
-      'assets/avatars/Gemini_Generated_Image_4echfc4echfc4ech.png',
-      'assets/avatars/Gemini_Generated_Image_8h3zz58h3zz58h3z.png',
-      'assets/avatars/Gemini_Generated_Image_9btvl39btvl39btv.png',
-      'assets/avatars/Gemini_Generated_Image_9tb20o9tb20o9tb2.png',
-    ];
-    
-    final names = ['Sarah', 'Emma', 'Jessica', 'Amanda', 'Lisa'];
-    
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: LivDecorations.glassmorphicCard,
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: LivTheme.primaryPink, width: 2),
-            ),
-            child: CircleAvatar(
-              radius: 30,
-              backgroundImage: AssetImage(avatars[index % avatars.length]),
-              onBackgroundImageError: (exception, stackTrace) {
-                // Handle error if needed
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  names[index % names.length],
-                  style: LivTheme.getBlackTitle(context).copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: LivTheme.textBlack54,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'New York, NY',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(18),
-                          boxShadow: [
-                            BoxShadow(
-                              color: LivTheme.primaryPink.withOpacity(0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: TextButton.icon(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                          ),
-                          onPressed: () {
-                            _showMessageDialog(context);
-                          },
-                          icon: const Icon(Icons.chat, color: Colors.white, size: 14),
-                          label: const Text(
-                            'Chat',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        decoration: BoxDecoration(
-                          gradient: LivTheme.mainAppGradient,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: TextButton.icon(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                          ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Like feature coming soon!'),
-                                backgroundColor: Color(0xFF9C27B0),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.favorite, color: Colors.white, size: 14),
-                          label: const Text(
-                            'Like',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
   Widget _buildMessageCard(int index) {
     final avatars = [
       'assets/avatars/Gemini_Generated_Image_1x9rce1x9rce1x9r.png',
@@ -1438,6 +1743,417 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Add friend request
+  Future<void> _addFriend(int friendUserId) async {
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) {
+      LivPopupMessage.showError(context, 'Please log in to add friends');
+      return;
+    }
+    
+    if (currentUserId == friendUserId) {
+      LivPopupMessage.showError(context, 'Cannot add yourself as a friend');
+      return;
+    }
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/send_friend_request.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'requester_id': currentUserId,
+          'receiver_id': friendUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          LivPopupMessage.showSuccess(context, data['message'] ?? 'Friend request sent!');
+        } else {
+          LivPopupMessage.showError(context, data['error'] ?? 'Failed to send friend request');
+        }
+      } else {
+        LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+
+  /// Load friend requests received by current user
+  Future<void> _loadFriendRequests() async {
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) return;
+    
+    setState(() {
+      _isLoadingFriendRequests = true;
+    });
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_friend_requests.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _friendRequests = List<Map<String, dynamic>>.from(data['requests'] ?? []);
+            _isLoadingFriendRequests = false;
+          });
+        } else {
+          setState(() {
+            _friendRequests = [];
+            _isLoadingFriendRequests = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingFriendRequests = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading friend requests: $e');
+      setState(() {
+        _isLoadingFriendRequests = false;
+      });
+    }
+  }
+
+  /// Respond to friend request (accept or reject)
+  Future<void> _respondToFriendRequest(int requestId, String action) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/respond_to_friend_request.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'request_id': requestId,
+          'action': action,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          LivPopupMessage.showSuccess(context, data['message'] ?? 'Request processed');
+          // Reload friend requests and friends
+          await _loadFriendRequests();
+          await _loadFriends();
+          // Reload Discover users to remove accepted friend from list (only if not already loading)
+          if (_currentIndex == 3 && !_isLoadingUsers) {
+            _loadAllUsers();
+          }
+        } else {
+          LivPopupMessage.showError(context, data['error'] ?? 'Failed to process request');
+        }
+      } else {
+        LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+
+  /// Load friends (accepted friend requests)
+  Future<void> _loadFriends() async {
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) return;
+    
+    setState(() {
+      _isLoadingFriends = true;
+    });
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_friends.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final friends = List<Map<String, dynamic>>.from(data['friends'] ?? []);
+          
+          // Convert friend structure to match Discover page structure (use 'id' instead of 'friend_id')
+          final friendsWithId = friends.map((friend) {
+            return {
+              'id': friend['user_id'],
+              'friend_id': friend['friend_id'],
+              'full_name': friend['full_name'],
+              'age': friend['age'],
+              'location': friend['location'],
+              'bio': friend['bio'],
+            };
+          }).toList();
+          
+          // Load like data for friends
+          if (friendsWithId.isNotEmpty) {
+            final friendIds = friendsWithId.map((f) => f['id'] != null ? int.tryParse(f['id'].toString()) : null).whereType<int>().toList();
+            await _loadLikesData(friendIds);
+          }
+          
+          setState(() {
+            _friends = friendsWithId;
+            _isLoadingFriends = false;
+          });
+          
+          // Don't automatically reload Discover here - it will be reloaded when needed
+          // (e.g., after accepting/rejecting friend requests, or when switching to Discover tab)
+        } else {
+          setState(() {
+            _friends = [];
+            _isLoadingFriends = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingFriends = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading friends: $e');
+      setState(() {
+        _isLoadingFriends = false;
+      });
+    }
+  }
+
+  Widget _buildFriendsList() {
+    if (_isLoadingFriends) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    if (_friends.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: LivDecorations.glassmorphicCard,
+        child: Center(
+          child: Text(
+            'No friends yet',
+            style: LivTheme.getBlackBody(context),
+          ),
+        ),
+      );
+    }
+    
+    return Column(
+      children: _friends.map((friend) => _buildFriendCard(friend)).toList(),
+    );
+  }
+
+  Widget _buildFriendCard(Map<String, dynamic> friend) {
+    final friendId = friend['friend_id'] as int;
+    final fullName = friend['full_name']?.toString() ?? 'User';
+    final age = friend['age'] != null ? int.tryParse(friend['age'].toString()) : null;
+    final location = friend['location']?.toString() ?? '';
+    
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+      decoration: LivDecorations.glassmorphicCard,
+      child: Row(
+        children: [
+          // Avatar
+          FutureBuilder<String?>(
+            key: ValueKey('friend_avatar_$friendId'),
+            future: _getUserAvatarFuture(friendId),
+            builder: (context, snapshot) {
+              final avatarPath = snapshot.data;
+              if (avatarPath != null && File(avatarPath).existsSync()) {
+                return Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: LivTheme.primaryPink, width: 2),
+                  ),
+                  child: CircleAvatar(
+                    radius: isSmallScreen ? 28 : 30,
+                    backgroundImage: FileImage(File(avatarPath)),
+                    onBackgroundImageError: (exception, stackTrace) {},
+                  ),
+                );
+              }
+              return Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: LivTheme.primaryPink, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: isSmallScreen ? 28 : 30,
+                  backgroundColor: Colors.grey[300],
+                  child: Icon(
+                    Icons.person,
+                    size: isSmallScreen ? 28 : 30,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              );
+            },
+          ),
+          SizedBox(width: isSmallScreen ? 12 : 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  fullName,
+                  style: LivTheme.getBlackTitle(context).copyWith(
+                    fontSize: isSmallScreen ? 16 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (age != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '$age years old',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.location_on,
+                          color: LivTheme.textBlack54,
+                          size: isSmallScreen ? 14 : 16,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 12 : 14,
+                            color: Colors.white,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [
+                            BoxShadow(
+                              color: LivTheme.primaryPink.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                          ),
+                          onPressed: () {
+                            _showMessageDialog(context);
+                          },
+                          icon: const Icon(Icons.chat, color: Colors.white, size: 14),
+                          label: const Text(
+                            'Chat',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Liked button commented out for friends page
+                    // const SizedBox(width: 8),
+                    // Expanded(
+                    //   child: Container(
+                    //     height: 36,
+                    //     decoration: BoxDecoration(
+                    //       gradient: LivTheme.mainAppGradient,
+                    //       borderRadius: BorderRadius.circular(18),
+                    //     ),
+                    //     child: TextButton.icon(
+                    //       style: TextButton.styleFrom(
+                    //         padding: const EdgeInsets.symmetric(horizontal: 8),
+                    //         minimumSize: const Size(0, 36),
+                    //         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    //         visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                    //       ),
+                    //       onPressed: () {
+                    //         if (friendId != null) {
+                    //           _toggleLike(friendId);
+                    //         }
+                    //       },
+                    //       icon: Icon(
+                    //         _likedUserIds.contains(friendId) ? Icons.favorite : Icons.favorite_border,
+                    //         color: Colors.white,
+                    //         size: 14,
+                    //       ),
+                    //       label: Text(
+                    //         _likedUserIds.contains(friendId) ? 'Liked' : 'Like',
+                    //         style: const TextStyle(
+                    //           color: Colors.white,
+                    //           fontSize: 12,
+                    //           fontWeight: FontWeight.w600,
+                    //         ),
+                    //         overflow: TextOverflow.ellipsis,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Load avatar for a specific user
   Future<String?> _loadUserAvatar(int userId) async {
     try {
@@ -1488,13 +2204,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final age = user['age'] != null ? int.tryParse(user['age'].toString()) ?? 0 : 0;
     final location = user['location']?.toString() ?? '';
     
+    final screenSize = MediaQuery.of(context).size;
+    final isSmallScreen = screenSize.width < 600;
+    
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: () => _showUserProfile(context, user),
         child: Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
       decoration: LivDecorations.glassmorphicCard,
       child: Row(
         children: [
@@ -1506,9 +2225,9 @@ class _HomeScreenState extends State<HomeScreen> {
               final avatarPath = snapshot.data;
               if (avatarPath != null && File(avatarPath).existsSync()) {
                 return CircleAvatar(
-            radius: 35,
+                  radius: isSmallScreen ? 30 : 35,
                   backgroundImage: FileImage(File(avatarPath)),
-            onBackgroundImageError: (exception, stackTrace) {
+                  onBackgroundImageError: (exception, stackTrace) {
                     // Silently handle error - will show placeholder on next rebuild
                   },
                   child: null,
@@ -1516,62 +2235,70 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               // Placeholder
               return CircleAvatar(
-                radius: 35,
+                radius: isSmallScreen ? 30 : 35,
                 backgroundColor: Colors.grey[300],
                 child: Icon(
                   Icons.person,
-                  size: 35,
+                  size: isSmallScreen ? 30 : 35,
                   color: Colors.grey[600],
                 ),
               );
             },
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: isSmallScreen ? 12 : 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   fullName,
                   style: LivTheme.getBlackTitle(context).copyWith(
-                    fontSize: 20,
+                    fontSize: isSmallScreen ? 16 : 20,
                     fontWeight: FontWeight.bold,
                   ),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$age years old',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
+                if (age > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '$age years old',
+                    style: TextStyle(
+                      fontSize: isSmallScreen ? 12 : 14,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                if (location.isNotEmpty)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      color: LivTheme.textBlack54,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                          location,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white,
+                ],
+                if (location.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.location_on,
+                          color: LivTheme.textBlack54,
+                          size: isSmallScreen ? 14 : 16,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          location,
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 12 : 14,
+                            color: Colors.white,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 // Like count display
                 if (_likeCounts.containsKey(userIdInt) && _likeCounts[userIdInt]! > 0)
                   Padding(
@@ -1651,31 +2378,34 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        child: TextButton.icon(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: const Size(0, 36),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-                          ),
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Message feature coming soon!'),
-                                backgroundColor: Color(0xFF9C27B0),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isVerySmallScreen = constraints.maxWidth < 280;
+                            return TextButton.icon(
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isVerySmallScreen ? 4 : 8,
+                                ),
+                                minimumSize: const Size(0, 36),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                              ),
+                              onPressed: () {
+                                _addFriend(userIdInt ?? 0);
+                              },
+                              icon: const Icon(Icons.person_add, size: 14, color: Colors.white),
+                              label: Text(
+                                isVerySmallScreen ? 'Add' : 'Add Friend',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             );
                           },
-                          icon: const Icon(Icons.message, size: 14, color: Colors.white),
-                          label: const Text(
-                            'Message',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
                         ),
                       ),
                     ),

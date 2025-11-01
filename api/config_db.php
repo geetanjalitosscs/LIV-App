@@ -1,4 +1,9 @@
 <?php
+// Disable error display to prevent HTML output
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
 $host = 'localhost';
 $user = 'root';
 $pass = '';

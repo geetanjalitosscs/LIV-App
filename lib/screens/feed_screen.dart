@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../theme/liv_theme.dart';
+import '../config/paths.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -11,76 +16,18 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen>
-    with TickerProviderStateMixin {
+class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   late AnimationController _backgroundController;
   late Animation<Color?> _backgroundTint;
   
   final TextEditingController _postController = TextEditingController();
+  final TextEditingController _commentController = TextEditingController();
   bool _isPosting = false;
+  bool _isLoadingPosts = false;
   
-  List<Map<String, dynamic>> _posts = [
-    {
-      'id': '1',
-      'user': 'Sarah M.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_1x9rce1x9rce1x9r.png',
-      'time': '2 hours ago',
-      'content': 'Just had an amazing time with friends! The key was being myself and asking genuine questions. 💕',
-      'likes': 24,
-      'comments': 8,
-      'isLiked': false,
-    },
-    {
-      'id': '2',
-      'user': 'Mike T.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_4echfc4echfc4ech.png',
-      'time': '4 hours ago',
-      'content': 'Friendship tip: Listen more than you talk. People love to feel heard and understood.',
-      'likes': 18,
-      'comments': 5,
-      'isLiked': true,
-    },
-    {
-      'id': '3',
-      'user': 'Emma L.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_8h3zz58h3zz58h3z.png',
-      'time': '6 hours ago',
-      'content': 'Found my best friend through this app! We connected over our shared love for hiking and books. 📚🏔️',
-      'likes': 42,
-      'comments': 15,
-      'isLiked': false,
-    },
-    {
-      'id': '4',
-      'user': 'Jessica K.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_9btvl39btvl39btv.png',
-      'time': '8 hours ago',
-      'content': 'Hey babe sorry na - just got busy with work! Let\'s catch up soon 💕',
-      'likes': 12,
-      'comments': 3,
-      'isLiked': false,
-    },
-    {
-      'id': '5',
-      'user': 'Alex R.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_9tb20o9tb20o9tb2.png',
-      'time': '1 day ago',
-      'content': 'Coffee dates are the best! Simple, relaxed, and perfect for getting to know someone ☕',
-      'likes': 31,
-      'comments': 7,
-      'isLiked': true,
-    },
-    {
-      'id': '6',
-      'user': 'Lisa P.',
-      'avatar': 'assets/avatars/Gemini_Generated_Image_dnyipmdnyipmdnyi.png',
-      'time': '1 day ago',
-      'content': 'First date success! We talked for 3 hours straight - time just flew by ⏰',
-      'likes': 28,
-      'comments': 9,
-      'isLiked': false,
-    },
-  ];
+  List<Map<String, dynamic>> _posts = [];
+  final Map<int, Future<String?>> _avatarFutures = {}; // Cache for avatar futures
+  final Map<int, List<Map<String, dynamic>>> _commentsCache = {}; // Cache for comments
   
   @override
   void initState() {
@@ -100,58 +47,519 @@ class _FeedScreenState extends State<FeedScreen>
     ));
     
     _backgroundController.repeat(reverse: true);
+    
+    // Load posts when screen is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadPosts();
+    });
   }
   
   @override
   void dispose() {
     _backgroundController.dispose();
     _postController.dispose();
+    _commentController.dispose();
     super.dispose();
   }
   
-  void _toggleLike(int index) {
+  Future<void> _loadPosts() async {
+    if (_isLoadingPosts) return;
+    
     setState(() {
-      _posts[index]['isLiked'] = !_posts[index]['isLiked'];
-      if (_posts[index]['isLiked']) {
-        _posts[index]['likes']++;
-      } else {
-        _posts[index]['likes']--;
-      }
+      _isLoadingPosts = true;
     });
+    
+    try {
+      final authService = AuthService.instance;
+      final currentUserId = authService.userId;
+      
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_posts.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'current_user_id': currentUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final posts = List<Map<String, dynamic>>.from(data['posts'] ?? []);
+          
+          // Pre-load avatars for all posts
+          for (var post in posts) {
+            final userIdInt = post['user_id'] != null 
+                ? int.tryParse(post['user_id'].toString()) 
+                : null;
+            if (userIdInt != null && !_avatarFutures.containsKey(userIdInt)) {
+              _avatarFutures[userIdInt] = _loadUserAvatar(userIdInt);
+            }
+          }
+          
+          setState(() {
+            _posts = posts;
+            _isLoadingPosts = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingPosts = false;
+          });
+          if (mounted) {
+            LivPopupMessage.showError(context, data['error'] ?? 'Failed to load posts');
+          }
+        }
+      } else {
+        setState(() {
+          _isLoadingPosts = false;
+        });
+        if (mounted) {
+          LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingPosts = false;
+      });
+      if (mounted) {
+        LivPopupMessage.showError(context, 'Error loading posts: ${e.toString()}');
+      }
+    }
+  }
+  
+  Future<String?> _loadUserAvatar(int userId) async {
+    try {
+      final userUploadsDir = Directory('${AppPaths.windowsUploadsBase}\\user_$userId');
+      
+      if (!userUploadsDir.existsSync()) {
+        return null;
+      }
+      
+      // Check for selected gallery avatar first
+      final prefs = await SharedPreferences.getInstance();
+      final selectedGalleryAvatar = prefs.getString('user_${userId}_selectedGalleryAvatar');
+      if (selectedGalleryAvatar != null && File(selectedGalleryAvatar).existsSync()) {
+        return selectedGalleryAvatar;
+      }
+      
+      // Check for last avatar PNG path
+      final lastAvatarPngPath = prefs.getString('user_${userId}_lastAvatarPngPath');
+      if (lastAvatarPngPath != null && File(lastAvatarPngPath).existsSync()) {
+        return lastAvatarPngPath;
+      }
+      
+      // Fallback: Get most recent PNG file
+      final pngFiles = userUploadsDir
+          .listSync()
+          .where((file) => file is File && file.path.toLowerCase().endsWith('.png'))
+          .cast<File>()
+          .toList();
+      
+      if (pngFiles.isEmpty) {
+        return null;
+      }
+      
+      pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      return pngFiles.first.path;
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  Future<String?> _getUserAvatarFuture(int userId) {
+    if (!_avatarFutures.containsKey(userId)) {
+      _avatarFutures[userId] = _loadUserAvatar(userId);
+    }
+    return _avatarFutures[userId]!;
   }
   
   Future<void> _createPost() async {
     if (_postController.text.trim().isEmpty) return;
     
+    final authService = AuthService.instance;
+    if (authService.userId == null) {
+      LivPopupMessage.showError(context, 'Please log in to create a post');
+      return;
+    }
+    
     setState(() {
       _isPosting = true;
     });
     
-    // Simulate posting
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/create_post.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': authService.userId,
+          'content': _postController.text.trim(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          _postController.clear();
+          // Reload posts to show the new one
+          await _loadPosts();
+          if (mounted) {
+            LivPopupMessage.showSuccess(context, 'Post created successfully!');
+          }
+        } else {
+          if (mounted) {
+            LivPopupMessage.showError(context, data['error'] ?? 'Failed to create post');
+          }
+        }
+      } else {
+        if (mounted) {
+          LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        LivPopupMessage.showError(context, 'Error creating post: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPosting = false;
+        });
+      }
+    }
+  }
+  
+  Future<void> _togglePostLike(int postId, int index) async {
+    final authService = AuthService.instance;
+    if (authService.userId == null) {
+      LivPopupMessage.showError(context, 'Please log in to like posts');
+      return;
+    }
     
-    final newPost = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'user': 'You',
-      'avatar': '👤',
-      'time': 'Just now',
-      'content': _postController.text.trim(),
-      'likes': 0,
-      'comments': 0,
-      'isLiked': false,
-    };
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/toggle_post_like.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'post_id': postId,
+          'user_id': authService.userId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            _posts[index]['is_liked'] = data['is_liked'] == true || data['is_liked'] == 1;
+            _posts[index]['likes_count'] = data['likes_count'] != null 
+                ? int.tryParse(data['likes_count'].toString()) ?? 0 
+                : 0;
+          });
+        } else {
+          if (mounted) {
+            LivPopupMessage.showError(context, data['error'] ?? 'Failed to like post');
+          }
+        }
+      } else {
+        if (mounted) {
+          LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+      }
+    }
+  }
+  
+  Future<void> _loadComments(int postId) async {
+    if (_commentsCache.containsKey(postId)) {
+      return; // Comments already loaded
+    }
     
-    setState(() {
-      _posts.insert(0, newPost);
-      _postController.clear();
-      _isPosting = false;
-    });
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_comments.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'post_id': postId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final comments = List<Map<String, dynamic>>.from(data['comments'] ?? []);
+          setState(() {
+            _commentsCache[postId] = comments;
+          });
+        }
+      }
+    } catch (e) {
+      // Silently handle errors
+    }
+  }
+  
+  Future<void> _addComment(int postId, int postIndex) async {
+    if (_commentController.text.trim().isEmpty) return;
     
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Post created successfully!'),
-        backgroundColor: Colors.green,
-      ),
+    final authService = AuthService.instance;
+    if (authService.userId == null) {
+      LivPopupMessage.showError(context, 'Please log in to comment');
+      return;
+    }
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/add_comment.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'post_id': postId,
+          'user_id': authService.userId,
+          'content': _commentController.text.trim(),
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          // Clear comment input
+          _commentController.clear();
+          
+          // Reload comments
+          _commentsCache.remove(postId);
+          await _loadComments(postId);
+          
+          // Update comment count
+          setState(() {
+            final currentCount = _posts[postIndex]['comments_count'] != null
+                ? int.tryParse(_posts[postIndex]['comments_count'].toString()) ?? 0
+                : 0;
+            _posts[postIndex]['comments_count'] = currentCount + 1;
+          });
+        } else {
+          if (mounted) {
+            LivPopupMessage.showError(context, data['error'] ?? 'Failed to add comment');
+          }
+        }
+      } else {
+        if (mounted) {
+          LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+      }
+    }
+  }
+  
+  Future<void> _sharePost(int postId) async {
+    final authService = AuthService.instance;
+    if (authService.userId == null) {
+      LivPopupMessage.showError(context, 'Please log in to share posts');
+      return;
+    }
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/share_post.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'post_id': postId,
+          'user_id': authService.userId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          LivPopupMessage.showSuccess(context, 'Post shared successfully!');
+        } else {
+          LivPopupMessage.showError(context, data['error'] ?? 'Failed to share post');
+        }
+      } else {
+        LivPopupMessage.showError(context, 'Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      LivPopupMessage.showError(context, 'Error: ${e.toString()}');
+    }
+  }
+  
+  String _formatTime(String? createdAt) {
+    if (createdAt == null) return 'Just now';
+    
+    try {
+      final created = DateTime.parse(createdAt);
+      final now = DateTime.now();
+      final difference = now.difference(created);
+      
+      if (difference.inDays > 0) {
+        return '${difference.inDays}d ago';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}h ago';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}m ago';
+      } else {
+        return 'Just now';
+      }
+    } catch (e) {
+      return 'Just now';
+    }
+  }
+  
+  void _showCommentsDialog(int postId, int postIndex) {
+    // Load comments if not cached
+    if (!_commentsCache.containsKey(postId)) {
+      _loadComments(postId);
+    }
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey[300]!),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Comments',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[900],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                // Comments List
+                Expanded(
+                  child: _commentsCache.containsKey(postId)
+                      ? (_commentsCache[postId]!.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No comments yet',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _commentsCache[postId]!.length,
+                              itemBuilder: (context, index) {
+                                final comment = _commentsCache[postId]![index];
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            comment['user_name'] ?? 'User',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _formatTime(comment['created_at']),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        comment['content'] ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ))
+                      : const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                ),
+                // Add Comment Input
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey[300]!),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _commentController,
+                          decoration: InputDecoration(
+                            hintText: 'Write a comment...',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              borderSide: BorderSide(color: Colors.grey[300]!),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                          ),
+                          maxLines: null,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) {
+                            _addComment(postId, postIndex);
+                            Navigator.pop(context);
+                            _showCommentsDialog(postId, postIndex);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.send),
+                        color: LivTheme.primaryPink,
+                        onPressed: () {
+                          _addComment(postId, postIndex);
+                          Navigator.pop(context);
+                          _showCommentsDialog(postId, postIndex);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
   
@@ -235,14 +643,56 @@ class _FeedScreenState extends State<FeedScreen>
                   
                   // Posts List
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _posts.length,
-                      itemBuilder: (context, index) {
-                        final post = _posts[index];
-                        return _buildPostCard(post, index);
-                      },
-                    ),
+                    child: _isLoadingPosts
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : _posts.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.feed_outlined,
+                                      size: 64,
+                                      color: Colors.white.withOpacity(0.5),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No posts yet',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.7),
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    TextButton(
+                                      onPressed: _loadPosts,
+                                      child: const Text(
+                                        'Refresh Here',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                itemCount: _posts.length,
+                                itemBuilder: (context, index) {
+                                  final post = _posts[index];
+                                  final postId = post['id'] != null 
+                                      ? int.tryParse(post['id'].toString()) 
+                                      : null;
+                                  // Skip posts with invalid IDs
+                                  if (postId == null || postId == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return _buildPostCard(post, index);
+                                },
+                              ),
                   ),
                 ],
               ),
@@ -254,6 +704,23 @@ class _FeedScreenState extends State<FeedScreen>
   }
   
   Widget _buildPostCard(Map<String, dynamic> post, int index) {
+    final postId = post['id'] != null 
+        ? int.tryParse(post['id'].toString()) ?? 0 
+        : 0;
+    final userId = post['user_id'] != null 
+        ? int.tryParse(post['user_id'].toString()) ?? 0 
+        : 0;
+    final userName = post['user_name'] ?? 'User';
+    final content = post['content'] ?? '';
+    final createdAt = post['created_at'];
+    final likesCount = post['likes_count'] != null 
+        ? int.tryParse(post['likes_count'].toString()) ?? 0 
+        : 0;
+    final commentsCount = post['comments_count'] != null 
+        ? int.tryParse(post['comments_count'].toString()) ?? 0 
+        : 0;
+    final isLiked = post['is_liked'] == true || post['is_liked'] == 1;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -271,13 +738,28 @@ class _FeedScreenState extends State<FeedScreen>
           // User Info
           Row(
             children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: AssetImage(post['avatar']),
-                onBackgroundImageError: (exception, stackTrace) {
-                  // Handle error by showing a fallback
+              FutureBuilder<String?>(
+                key: ValueKey('post_avatar_$userId'),
+                future: _getUserAvatarFuture(userId),
+                builder: (context, snapshot) {
+                  final avatarPath = snapshot.data;
+                  if (avatarPath != null && File(avatarPath).existsSync()) {
+                    return CircleAvatar(
+                      radius: 20,
+                      backgroundImage: FileImage(File(avatarPath)),
+                      onBackgroundImageError: (exception, stackTrace) {},
+                    );
+                  }
+                  return CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey[300],
+                    child: Icon(
+                      Icons.person,
+                      size: 20,
+                      color: Colors.grey[600],
+                    ),
+                  );
                 },
-                child: null, // Always use backgroundImage for assets
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -285,7 +767,7 @@ class _FeedScreenState extends State<FeedScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      post['user'],
+                      userName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -293,7 +775,7 @@ class _FeedScreenState extends State<FeedScreen>
                       ),
                     ),
                     Text(
-                      post['time'],
+                      _formatTime(createdAt),
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -305,7 +787,7 @@ class _FeedScreenState extends State<FeedScreen>
               IconButton(
                 onPressed: () {
                   // Show more options
-                  _showPostOptions(context, index);
+                  _showPostOptions(context, postId);
                 },
                 icon: const Icon(
                   Icons.more_vert,
@@ -318,7 +800,7 @@ class _FeedScreenState extends State<FeedScreen>
           
           // Post Content
           Text(
-            post['content'],
+            content,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -331,17 +813,17 @@ class _FeedScreenState extends State<FeedScreen>
           Row(
             children: [
               GestureDetector(
-                onTap: () => _toggleLike(index),
+                onTap: () => _togglePostLike(postId, index),
                 child: Row(
                   children: [
                     Icon(
-                      post['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                      color: post['isLiked'] ? Colors.red : Colors.white70,
+                      isLiked ? Icons.favorite : Icons.favorite_border,
+                      color: isLiked ? Colors.red : Colors.white70,
                       size: 20,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${post['likes']}',
+                      '$likesCount',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -351,28 +833,34 @@ class _FeedScreenState extends State<FeedScreen>
                 ),
               ),
               const SizedBox(width: 24),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.comment_outlined,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${post['comments']}',
-                    style: const TextStyle(
+              GestureDetector(
+                onTap: () => _showCommentsDialog(postId, index),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.comment_outlined,
                       color: Colors.white70,
-                      fontSize: 14,
+                      size: 20,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Text(
+                      '$commentsCount',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(width: 24),
-              const Icon(
-                Icons.share_outlined,
-                color: Colors.white70,
-                size: 20,
+              GestureDetector(
+                onTap: () => _sharePost(postId),
+                child: const Icon(
+                  Icons.share_outlined,
+                  color: Colors.white70,
+                  size: 20,
+                ),
               ),
             ],
           ),
@@ -381,7 +869,7 @@ class _FeedScreenState extends State<FeedScreen>
     );
   }
   
-  void _showPostOptions(BuildContext context, int index) {
+  void _showPostOptions(BuildContext context, int postId) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -404,9 +892,7 @@ class _FeedScreenState extends State<FeedScreen>
                   title: const Text('Report'),
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Post reported')),
-                    );
+                    LivPopupMessage.showInfo(context, 'Post reported');
                   },
                 ),
                 ListTile(
@@ -414,9 +900,7 @@ class _FeedScreenState extends State<FeedScreen>
                   title: const Text('Block User'),
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('User blocked')),
-                    );
+                    LivPopupMessage.showInfo(context, 'User blocked');
                   },
                 ),
                 ListTile(
@@ -424,9 +908,7 @@ class _FeedScreenState extends State<FeedScreen>
                   title: const Text('Copy Text'),
                   onTap: () {
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Text copied to clipboard')),
-                    );
+                    LivPopupMessage.showInfo(context, 'Text copied to clipboard');
                   },
                 ),
               ],

@@ -1,6 +1,11 @@
 <?php
+// Prevent any output before JSON
+ob_start();
 header('Content-Type: application/json');
 require_once './config_db.php';
+// Clean any output from config_db.php
+ob_end_clean();
+ob_start();
 
 $input = $_POST;
 if (empty($input)) {
@@ -38,6 +43,7 @@ try {
         $users[] = $row;
     }
     
+    ob_clean();
     echo json_encode([
         "success" => true,
         "users" => $users,
@@ -46,6 +52,7 @@ try {
     
     $stmt->close();
 } catch (Exception $e) {
+    ob_clean();
     echo json_encode([
         "success" => false,
         "error" => $e->getMessage(),
@@ -55,5 +62,5 @@ try {
 }
 
 $conn->close();
-?>
+exit;
 
