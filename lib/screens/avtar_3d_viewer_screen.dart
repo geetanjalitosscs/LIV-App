@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../services/three_dart_avtar_service.dart';
-import '../theme/liv_theme.dart';
 
 class Avatar3DViewerScreen extends StatefulWidget {
   final Map<String, dynamic> avatarSpecs;
@@ -26,27 +24,10 @@ class _Avatar3DViewerScreenState extends State<Avatar3DViewerScreen> {
 
   Future<void> _loadAvatarViewer() async {
     try {
-      // For web platform, render using three_dart inside an overlay
-      if (kIsWeb) {
-        await ThreeDartAvatarService.instance.initializeWithConfig({
-          'gender': widget.avatarSpecs['gender']?.toString(),
-          'bodyType': widget.avatarSpecs['bodyType']?.toString(),
-          'skinColor': null,
-          'skinTone': widget.avatarSpecs['skinTone']?.toString(),
-          'style': widget.avatarSpecs['style']?.toString(),
-          'hairColor': widget.avatarSpecs['hairColor']?.toString(),
-          'eyeColor': widget.avatarSpecs['eyeColor']?.toString(),
-          'topColor': null,
-          'bottomColor': null,
-          'shoeColor': null,
-        });
-        setState(() { _isLoading = false; });
-      } else {
-        // For other platforms, show a message
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      // Avatar viewer service removed - show loading completion
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       print('Error loading avatar viewer: $e');
       setState(() {

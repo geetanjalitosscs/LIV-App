@@ -6,17 +6,13 @@ import 'package:http/http.dart' as http;
 import '../config/paths.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_service.dart';
 import '../widgets/profile_image_dialog.dart';
-import '../services/avtar_generator_service.dart';
 import '../services/auth_service.dart';
 import '../services/avtar_service.dart';
 import '../theme/liv_theme.dart';
 import 'edit_profile_screen.dart';
 import 'avtar_main_screen.dart';
-import 'avtar_creator_screen.dart';
 import 'avtar_generation_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -32,18 +28,19 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   Uint8List? _selectedImageBytes;
   Uint8List? _generatedAvatarBytes;
   bool _isGenerating = false;
-  final AvatarGeneratorService _avatarService = AvatarGeneratorService.instance;
   String? _readyPlayerMeAvatarPath;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadReadyPlayerMeAvatar();
     
     // Add post-frame callback to ensure refresh after screen is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadReadyPlayerMeAvatar();
+      if (mounted) {
+        _refreshProfile();
+      }
     });
   }
 
@@ -57,23 +54,34 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      // Refresh avatar when app becomes active
-      _loadReadyPlayerMeAvatar();
+      // Refresh profile when app becomes active
+      if (mounted && !_isRefreshing) {
+        _refreshProfile();
+      }
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh avatar when returning to this screen
-    _loadReadyPlayerMeAvatar();
+    // Refresh when dependencies change (e.g., when navigating to this tab)
+    // Use a small delay to ensure the screen is fully built
+    if (mounted && !_isRefreshing) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && !_isRefreshing) {
+          _refreshProfile();
+        }
+      });
+    }
   }
 
   @override
   void didPopNext() {
     // Called when returning to this screen from another screen
-    print('Profile screen: didPopNext - refreshing avatar');
-    _loadReadyPlayerMeAvatar();
+    print('Profile screen: didPopNext - refreshing profile');
+    if (mounted && !_isRefreshing) {
+      _refreshProfile();
+    }
   }
 
   @override
@@ -82,9 +90,42 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     print('Profile screen: didPushNext');
   }
 
-  Future<void> _loadReadyPlayerMeAvatar() async {
+  Future<void> _refreshProfile({bool fromButton = false}) async {
+    if (_isRefreshing && !fromButton) return; // Prevent duplicate auto-refreshes
+    
+    if (fromButton) {
+      setState(() {
+        _isRefreshing = true;
+      });
+    }
+    
     try {
-      print('Profile screen: Starting avatar refresh...');
+      // Refresh user data from database first
+      await AuthService.instance.refreshUserData();
+      
+      // Then refresh avatar
+      await _loadReadyPlayerMeAvatar(fromButton: fromButton);
+      
+      // Force UI update
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      print('Error refreshing profile: $e');
+    } finally {
+      if (fromButton && mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadReadyPlayerMeAvatar({bool fromButton = false}) async {
+    try {
+      if (fromButton) {
+        print('Profile screen: Manual refresh triggered by button');
+      }
       final avatarPath = await AvatarService.getAvatarImagePath();
       
       if (avatarPath != null && File(avatarPath).existsSync()) {
@@ -302,20 +343,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
     
     print('Profile screen: Returned from AvatarMainScreen with result: $result');
-    if (result == true) {
-      // Reload the Ready Player Me avatar
-      print('Profile screen: Avatar was updated, refreshing...');
-      await _loadReadyPlayerMeAvatar();
-      setState(() {
-        _generatedAvatarBytes = null; // Clear AI generated avatar
-        _selectedImageBytes = null; // Clear selected image
-      });
-      _showSuccessSnackBar('3D Avtar updated successfully!');
-    } else {
-      // Even if result is false, refresh to ensure consistency
-      print('Profile screen: No avatar update, but refreshing anyway...');
-      await _loadReadyPlayerMeAvatar();
+    // Always refresh when returning from avatar screen
+    if (mounted && !_isRefreshing) {
+      await _refreshProfile();
     }
+    setState(() {
+      _generatedAvatarBytes = null; // Clear AI generated avatar
+      _selectedImageBytes = null; // Clear selected image
+    });
   }
 
   // Legacy method - kept for compatibility but redirects to new system
@@ -477,6 +512,34 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           'Profile',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
+        actions: [
+          _isRefreshing
+              ? const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: () async {
+                    if (_isRefreshing) return; // Prevent multiple simultaneous refreshes
+                    
+                    setState(() {
+                      _isRefreshing = true;
+                    });
+                    
+                    // Use the comprehensive refresh method
+                    await _refreshProfile(fromButton: true);
+                  },
+                  tooltip: 'Refresh profile',
+                ),
+        ],
         foregroundColor: Colors.white,
       ),
       body: Container(
@@ -750,9 +813,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                           context,
                                           MaterialPageRoute(builder: (context) => const EditProfileScreen()),
                                         );
-                                        // Refresh user data if profile was updated
-                                        if (result == true) {
-                                          await AuthService.instance.refreshUserData();
+                                        // Refresh profile if profile was updated
+                                        if (result == true && mounted && !_isRefreshing) {
+                                          await _refreshProfile();
                                         }
                                       },
                                       icon: const Icon(Icons.edit, color: Colors.white),

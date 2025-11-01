@@ -1,9 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/avtar_generator_service.dart';
-import '../services/avtar_2d_service.dart';
-import '../theme/liv_theme.dart';
 import 'avtar_3d_viewer_screen.dart';
 
 extension StringExtension on String {
@@ -20,9 +17,6 @@ class AvatarGenerationScreen extends StatefulWidget {
 }
 
 class _AvatarGenerationScreenState extends State<AvatarGenerationScreen> {
-  final AvatarGeneratorService _avatarService = AvatarGeneratorService.instance;
-  final Avtar2DService _avatar2DService = Avtar2DService.instance;
-  
   // Avatar specifications
   String _gender = 'male';
   String _bodyType = 'athletic';
@@ -546,58 +540,22 @@ class _AvatarGenerationScreenState extends State<AvatarGenerationScreen> {
     });
 
     try {
-      // Generate 3D avatar using Three.js
-      if (_useInputImage && _selectedImageBytes != null) {
-        await _avatarService.generateAvatar(
-          inputImageBytes: _selectedImageBytes,
-          gender: _gender,
-          bodyType: _bodyType,
-          faceType: _faceType,
-          hasBeard: _hasBeard,
-          hasGlasses: _hasGlasses,
-          hairColor: _hairColor,
-          eyeColor: _eyeColor,
-          skinTone: _skinTone,
-          style: _style,
-        );
-      } else {
-        await _avatarService.generateAvatarFromText(
-          gender: _gender,
-          bodyType: _bodyType,
-          faceType: _faceType,
-          hasBeard: _hasBeard,
-          hasGlasses: _hasGlasses,
-          hairColor: _hairColor,
-          eyeColor: _eyeColor,
-          skinTone: _skinTone,
-          style: _style,
-        );
-      }
-
-      // Generate 2D avatar for profile picture
-      _generatedAvatarBytes = await _avatar2DService.generateAvatarImage(
-        gender: _gender,
-        bodyType: _bodyType,
-        faceType: _faceType,
-        hasBeard: _hasBeard,
-        hasGlasses: _hasGlasses,
-        hairColor: _hairColor,
-        eyeColor: _eyeColor,
-        skinTone: _skinTone,
-        style: _style,
-      );
+      // Avatar generation services removed
+      // Service functionality is no longer available
+      await Future.delayed(const Duration(milliseconds: 500)); // Simulate processing
 
       setState(() {
         _isGenerating = false;
-        _avatarGenerated = true;
+        _avatarGenerated = false;
+        _generatedAvatarBytes = null;
       });
 
-      _showSuccessSnackBar('Avatar generated successfully!');
+      _showErrorSnackBar('Avatar generation service is not available');
     } catch (e) {
       setState(() {
         _isGenerating = false;
       });
-      _showErrorSnackBar('Error generating avatar: $e');
+      _showErrorSnackBar('Error: $e');
     }
   }
 

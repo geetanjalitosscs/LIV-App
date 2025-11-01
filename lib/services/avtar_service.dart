@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config/paths.dart';
 import 'auth_service.dart';
+import 'user_service.dart';
 
 class AvatarService {
   static const String _baseUrl = 'https://readyplayer.me/avatar?frameApi';
@@ -170,6 +171,12 @@ class AvatarService {
       await prefs.setString(_getKey('lastAvatarGlbPath'), glbPath);
       if (pngPath != null) {
         await prefs.setString(_getKey('lastAvatarPngPath'), pngPath);
+      }
+
+      // Automatically set as profile avatar
+      if (pngPath != null) {
+        UserService.instance.selectAvatar(pngPath);
+        print('Newly created avatar set as profile avatar: $pngPath');
       }
 
       if (!context.mounted) return;

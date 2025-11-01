@@ -13,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
+import '../theme/liv_theme.dart';
 
 // Custom dialog functions
 Future<void> _showErrorDialog(BuildContext context) async {
@@ -84,11 +85,47 @@ Future<void> _showErrorDialog(BuildContext context) async {
   );
 }
 
-Future<void> _showSuccessDialog(BuildContext context) async {
+Future<void> _showSavingDialog(BuildContext context) async {
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) {
+      return PopScope(
+        canPop: false, // Prevent closing by back button
+        child: AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667eea)),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Your avatar is saving...',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _showSuccessDialog(BuildContext context) async {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
       return AlertDialog(
         backgroundColor: const Color(0xFF2D2D2D),
         shape: RoundedRectangleBorder(
@@ -130,8 +167,8 @@ Future<void> _showSuccessDialog(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              // Navigate back to home screen with success flag
+              Navigator.of(dialogContext).pop(); // Close the dialog
+              // Navigate back to avatar main screen
               Navigator.of(context).pop(true);
             },
             style: TextButton.styleFrom(
@@ -349,13 +386,22 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
   }
 
   Future<void> _downloadAvatar(String url) async {
+    // Show loading dialog immediately
+    if (!mounted) return;
+    _showSavingDialog(context);
+    
     try {
       if (kIsWeb) {
         // On web, trigger browser download/open
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(); // Close loading dialog
+        }
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Avatar opened in a new tab for download")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Avatar opened in a new tab for download")),
+          );
+        }
         return;
       }
 
@@ -363,7 +409,10 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
         if (!await Permission.storage.request().isGranted) {
           if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop(); // Close loading dialog
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Storage permission denied")),
             );
           }
@@ -383,6 +432,9 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       // Use user-specific directory
       final userId = AuthService.instance.userId;
       if (userId == null) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(); // Close loading dialog
+        }
         throw Exception('User must be logged in to save avatars');
       }
       
@@ -416,24 +468,52 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
         }
       } catch (_) {}
 
-      // Persist references
+      // Persist references with user-specific keys
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('lastAvatarId', avatarId);
-      await prefs.setString('lastAvatarGlbPath', glbPath);
+      final userKey = (String key) => 'user_${userId}_$key';
+      await prefs.setString(userKey('lastAvatarId'), avatarId);
+      await prefs.setString(userKey('lastAvatarGlbPath'), glbPath);
       if (pngPath != null) {
-        await prefs.setString('lastAvatarPngPath', pngPath);
+        await prefs.setString(userKey('lastAvatarPngPath'), pngPath);
+      }
+
+      // Automatically set as profile avatar
+      if (pngPath != null && mounted) {
+        final userService = Provider.of<UserService>(context, listen: false);
+        userService.selectAvatar(pngPath);
+        print('Newly created avatar set as profile avatar: $pngPath');
       }
 
       if (!mounted) return;
       
+      // Close loading dialog
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
       print('Avatar saved successfully! GLB: $glbPath, PNG: $pngPath');
-      // Show custom success dialog
+      
+      // Small delay for smooth transition
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (!mounted) return;
+      
+      // Show dark success dialog (exact same as image)
       await _showSuccessDialog(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save avtar: $e')),
-      );
+      
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save avtar: $e')),
+        );
+      }
     }
   }
 
@@ -787,6 +867,11 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
 
   Future<void> _saveCurrentAvatar() async {
     if (avatarUrl == null || avatarUrl!.isEmpty) return;
+    
+    // Show loading dialog immediately
+    if (!mounted) return;
+    _showSavingDialog(context);
+    
     try {
       // Extract avatar ID from RPM url .../{id}.glb
       final uri = Uri.parse(avatarUrl!);
@@ -795,6 +880,9 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       final String avatarId = fileName.replaceAll('.glb', '');
 
       if (kIsWeb) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(); // Close loading dialog
+        }
         await launchUrl(Uri.parse(avatarUrl!), mode: LaunchMode.externalApplication);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -809,6 +897,9 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       final userId = authService.userId;
       if (userId == null) {
         if (mounted) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(); // Close loading dialog
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please log in to save avatars')),
           );
@@ -865,12 +956,33 @@ class _AvtarCreatorScreenState extends State<AvtarCreatorScreen> {
       }
 
       if (!mounted) return;
+      
+      // Close loading dialog
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      // Small delay for smooth transition
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (!mounted) return;
+      
+      // Show dark success dialog (exact same as image)
       await _showSuccessDialog(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: $e')),
-      );
+      
+      // Close loading dialog if still open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save avtar: $e')),
+        );
+      }
     }
   }
 }

@@ -42,7 +42,10 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
     setState(() {
       _avatarFuture = _loadSavedAvatar();
     });
-    _loadAllAvatars();
+    // Delay slightly to ensure UserService is updated
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _loadAllAvatars();
+    });
   }
 
   @override
@@ -298,37 +301,79 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
         return;
       }
       
-      // Get the currently selected avatar ID from SharedPreferences (most reliable source)
+      // Get the currently selected profile avatar (both ID and path)
       String? currentAvatarId;
+      String? currentAvatarPath;
+      Set<String> allCurrentPaths = {}; // Track all possible current avatar paths
+      
       try {
-        // First try to get from SharedPreferences (the actual saved profile avatar)
-        final prefs = await SharedPreferences.getInstance();
-        final userId = AuthService.instance.userId;
-        String? savedAvatarId;
-        if (userId != null) {
-          savedAvatarId = prefs.getString('user_${userId}_lastAvatarId');
+        // Get from UserService (most reliable - this is the actual selected profile avatar)
+        final userService = UserService.instance;
+        if (userService.selectedAvatar != null && File(userService.selectedAvatar!).existsSync()) {
+          currentAvatarPath = userService.selectedAvatar;
+          allCurrentPaths.add(File(currentAvatarPath!).absolute.path.toLowerCase());
+          print('Found current avatar from UserService: $currentAvatarPath');
         }
         
-        // If found in SharedPreferences, use it
-        if (savedAvatarId != null && savedAvatarId.isNotEmpty) {
-          currentAvatarId = savedAvatarId;
-          print('Current profile avatar ID from SharedPreferences: $currentAvatarId');
-        } else {
-          // Fallback to _avatarFuture
-          final currentAvatar = await _avatarFuture;
-          if (currentAvatar != null && currentAvatar['id'] != null) {
-            currentAvatarId = currentAvatar['id'];
-            print('Current profile avatar ID from _avatarFuture: $currentAvatarId');
+        // Also check the _avatarFuture result
+        final currentAvatar = await _avatarFuture;
+        if (currentAvatar != null && currentAvatar['png'] != null) {
+          final pngPath = currentAvatar['png']!;
+          if (File(pngPath).existsSync()) {
+            allCurrentPaths.add(File(pngPath).absolute.path.toLowerCase());
+            if (currentAvatar['id'] != null) {
+              // Extract just the filename from ID if it contains path
+              final rawId = currentAvatar['id']!;
+              if (rawId.contains('/') || rawId.contains('\\')) {
+                currentAvatarId = rawId.split('/').last.split('\\').last;
+              } else {
+                currentAvatarId = rawId;
+              }
+            }
+            print('Found current avatar from _avatarFuture: $pngPath, ID: ${currentAvatar['id']} (normalized: $currentAvatarId)');
           }
         }
+        
+        // Get from SharedPreferences as well
+        final prefs = await SharedPreferences.getInstance();
+        final userId = AuthService.instance.userId;
+        if (userId != null) {
+          // Get avatar ID (extract just the filename if it includes path)
+          final savedAvatarId = prefs.getString('user_${userId}_lastAvatarId');
+          if (savedAvatarId != null && savedAvatarId.isNotEmpty) {
+            // Extract just the filename part if the ID includes a path
+            if (savedAvatarId.contains('/') || savedAvatarId.contains('\\')) {
+              currentAvatarId = savedAvatarId.split('/').last.split('\\').last;
+            } else {
+              currentAvatarId = savedAvatarId;
+            }
+            print('Found current avatar ID from SharedPreferences (normalized): $currentAvatarId');
+          }
+          
+          // Get avatar path from SharedPreferences
+          String? savedPath = prefs.getString('user_${userId}_selectedGalleryAvatar');
+          if (savedPath != null && File(savedPath).existsSync()) {
+            allCurrentPaths.add(File(savedPath).absolute.path.toLowerCase());
+            if (currentAvatarPath == null) {
+              currentAvatarPath = savedPath;
+            }
+            print('Found current avatar from SharedPreferences (gallery): $savedPath');
+          }
+          
+          savedPath = prefs.getString('user_${userId}_lastAvatarPngPath');
+          if (savedPath != null && File(savedPath).existsSync()) {
+            allCurrentPaths.add(File(savedPath).absolute.path.toLowerCase());
+            if (currentAvatarPath == null) {
+              currentAvatarPath = savedPath;
+            }
+            print('Found current avatar from SharedPreferences (3D): $savedPath');
+          }
+        }
+        
+        print('Current profile avatar - ID: $currentAvatarId, Paths to exclude: $allCurrentPaths');
       } catch (e) {
         print('Error getting current avatar: $e');
       }
-      
-      // Check if user has selected a gallery image (not from Ready Player Me)
-      final userService = UserService.instance;
-      final bool hasGalleryImage = userService.selectedAvatar != null && 
-          File(userService.selectedAvatar!).existsSync();
       
       final pngFiles = uploadsDir
           .listSync()
@@ -338,15 +383,17 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
       
       print('Found ${pngFiles.length} PNG files');
       print('Current profile avatar ID to exclude: $currentAvatarId');
-      print('Has gallery image: $hasGalleryImage');
+      print('Current profile avatar Path to exclude: $currentAvatarPath');
       
       if (pngFiles.isNotEmpty) {
         pngFiles.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
         
         final avatarList = pngFiles.map((file) {
-          final fileName = file.path.split('\\').last;
-          final avatarId = fileName.replaceAll('.png', '');
-          final glbPath = '$windowsUploads\\$avatarId.glb';
+          // Extract filename using both Windows and Unix path separators
+          final pathParts = file.path.split(Platform.isWindows ? '\\' : '/');
+          final fileName = pathParts.last;
+          final avatarId = fileName.replaceAll('.png', '').replaceAll('.PNG', '');
+          final glbPath = '$windowsUploads${Platform.pathSeparator}$avatarId.glb';
           
           return {
             'id': avatarId,
@@ -356,18 +403,60 @@ class _AvatarMainScreenState extends State<AvatarMainScreen> {
           };
         }).toList();
         
-        // Always filter out the currently selected Ready Player Me profile avatar
-        // (Gallery images are stored elsewhere and won't be in this list anyway)
+        // Filter out the currently selected profile avatar
+        // Check both by ID (for Ready Player Me avatars) and by path (for all avatars)
         final filteredAvatars = avatarList.where((avatar) {
-          // Always exclude the current profile avatar if it matches
-          final shouldInclude = avatar['id'] != currentAvatarId;
-          if (!shouldInclude) {
-            print('Filtering out avatar: ${avatar['id']} (matches current profile avatar)');
+          final avatarPath = avatar['png'] as String;
+          final avatarIdValue = avatar['id'] as String;
+          
+          // Normalize the avatar path for comparison (lowercase, absolute path, normalize separators)
+          String normalizedAvatarPath = File(avatarPath).absolute.path.toLowerCase();
+          // Normalize path separators - replace both / and \ with just \ for Windows comparison
+          normalizedAvatarPath = normalizedAvatarPath.replaceAll('/', '\\').replaceAll(RegExp(r'\\+'), '\\');
+          
+          // Exclude if path matches any of the current profile avatar paths
+          bool pathMatches = false;
+          for (final currentPath in allCurrentPaths) {
+            String normalizedCurrentPath = currentPath.replaceAll('/', '\\').replaceAll(RegExp(r'\\+'), '\\');
+            // Also try without the absolute path prefix if needed
+            if (normalizedCurrentPath == normalizedAvatarPath) {
+              pathMatches = true;
+              print('  Path match found: $normalizedCurrentPath == $normalizedAvatarPath');
+              break;
+            }
           }
+          
+          // Also do direct path comparison as fallback
+          if (!pathMatches && currentAvatarPath != null) {
+            try {
+              String normalizedCurrentPath = File(currentAvatarPath).absolute.path.toLowerCase();
+              normalizedCurrentPath = normalizedCurrentPath.replaceAll('/', '\\').replaceAll(RegExp(r'\\+'), '\\');
+              if (normalizedCurrentPath == normalizedAvatarPath) {
+                pathMatches = true;
+                print('  Direct path match found: $normalizedCurrentPath == $normalizedAvatarPath');
+              }
+            } catch (e) {
+              // If path comparison fails, continue with ID check
+              print('  Path comparison error: $e');
+            }
+          }
+          
+          // Exclude if ID matches current profile avatar ID
+          final idMatches = currentAvatarId != null && avatarIdValue == currentAvatarId;
+          
+          final shouldInclude = !pathMatches && !idMatches;
+          
+          if (!shouldInclude) {
+            print('Filtering out avatar: ID=${avatar['id']}, Path=$avatarPath, Normalized=$normalizedAvatarPath');
+            print('  - Path match: $pathMatches, ID match: $idMatches');
+            print('  - Current paths: $allCurrentPaths');
+            print('  - Current ID: $currentAvatarId');
+          }
+          
           return shouldInclude;
         }).toList();
         
-        print('Setting ${filteredAvatars.length} avatars (${hasGalleryImage ? 'including' : 'excluding'} current profile avatar)');
+        print('Filtered from ${avatarList.length} to ${filteredAvatars.length} avatars (excluded current profile avatar)');
         setState(() {
           _allAvatars = filteredAvatars;
         });
