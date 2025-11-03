@@ -2,6 +2,7 @@
 ob_start();
 header('Content-Type: application/json');
 require_once './config_db.php';
+require_once './encryption_helper.php';
 ob_end_clean();
 ob_start();
 
@@ -35,13 +36,17 @@ if (empty($input['post_id']) || empty($input['user_id']) || empty($input['conten
 
 $postId = (int)$input['post_id'];
 $userId = (int)$input['user_id'];
-$content = $conn->real_escape_string(trim($input['content']));
+$content = trim($input['content']);
 
 if (empty($content)) {
     ob_clean();
     echo json_encode(["success" => false, "error" => "Comment content cannot be empty"]);
     exit;
 }
+
+// Encrypt the content before storing
+$encryptedContent = encrypt_data($content);
+$encryptedContentEscaped = $conn->real_escape_string($encryptedContent);
 
 try {
     $sql = "INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)";
@@ -52,7 +57,7 @@ try {
         exit;
     }
     
-    $stmt->bind_param('iis', $postId, $userId, $content);
+    $stmt->bind_param('iis', $postId, $userId, $encryptedContentEscaped);
     
     if (@$stmt->execute()) {
         if (ob_get_level() > 0) {
@@ -76,6 +81,11 @@ try {
         $result = $selectStmt->get_result();
         $comment = $result->fetch_assoc();
         $selectStmt->close();
+        
+        // Decrypt the content before sending to client
+        if (isset($comment['content'])) {
+            $comment['content'] = decrypt_data($comment['content']);
+        }
         
         ob_clean();
         echo json_encode([

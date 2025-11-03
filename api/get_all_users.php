@@ -3,6 +3,7 @@
 ob_start();
 header('Content-Type: application/json');
 require_once './config_db.php';
+require_once './encryption_helper.php';
 // Clean any output from config_db.php
 ob_end_clean();
 ob_start();
@@ -40,6 +41,10 @@ try {
     
     $users = [];
     while ($row = $result->fetch_assoc()) {
+        // Decrypt bio before sending to client
+        if (isset($row['bio']) && !empty($row['bio'])) {
+            $row['bio'] = decrypt_data($row['bio']);
+        }
         $users[] = $row;
     }
     

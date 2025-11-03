@@ -111,6 +111,38 @@ CREATE TABLE IF NOT EXISTS shares (
     FOREIGN KEY (shared_with_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create messages table
+CREATE TABLE IF NOT EXISTS messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT NOT NULL,
+    receiver_id INT NOT NULL,
+    message TEXT NOT NULL,
+    is_read TINYINT(1) DEFAULT 0,
+    is_deleted_for_sender TINYINT(1) DEFAULT 0,
+    is_deleted_for_receiver TINYINT(1) DEFAULT 0,
+    edited_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_sender (sender_id),
+    INDEX idx_receiver (receiver_id),
+    INDEX idx_created_at (created_at),
+    INDEX idx_conversation (sender_id, receiver_id),
+    FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create message_likes table
+CREATE TABLE IF NOT EXISTS message_likes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_message_like (message_id, user_id),
+    INDEX idx_message_id (message_id),
+    INDEX idx_user_id (user_id),
+    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================
 -- Database Setup Complete
 -- ============================================
@@ -122,5 +154,6 @@ CREATE TABLE IF NOT EXISTS shares (
 -- 5. post_likes - Stores likes on posts
 -- 6. comments - Stores comments on posts
 -- 7. shares - Stores post shares
+-- 8. messages - Stores messages between users
 -- ============================================
 

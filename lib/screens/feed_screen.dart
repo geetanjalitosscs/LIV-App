@@ -101,7 +101,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
             _isLoadingPosts = false;
           });
         } else {
-          setState(() {
+    setState(() {
             _isLoadingPosts = false;
           });
           if (mounted) {
@@ -191,7 +191,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'user_id': authService.userId,
-          'content': _postController.text.trim(),
+      'content': _postController.text.trim(),
         }),
       );
       
@@ -220,9 +220,9 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isPosting = false;
-        });
+    setState(() {
+      _isPosting = false;
+    });
       }
     }
   }
@@ -679,10 +679,10 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                                 ),
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                itemCount: _posts.length,
-                                itemBuilder: (context, index) {
-                                  final post = _posts[index];
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: _posts.length,
+                      itemBuilder: (context, index) {
+                        final post = _posts[index];
                                   final postId = post['id'] != null 
                                       ? int.tryParse(post['id'].toString()) 
                                       : null;
@@ -690,9 +690,9 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                                   if (postId == null || postId == 0) {
                                     return const SizedBox.shrink();
                                   }
-                                  return _buildPostCard(post, index);
-                                },
-                              ),
+                        return _buildPostCard(post, index);
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -751,7 +751,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                     );
                   }
                   return CircleAvatar(
-                    radius: 20,
+                radius: 20,
                     backgroundColor: Colors.grey[300],
                     child: Icon(
                       Icons.person,
@@ -836,30 +836,30 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
               GestureDetector(
                 onTap: () => _showCommentsDialog(postId, index),
                 child: Row(
-                  children: [
-                    const Icon(
-                      Icons.comment_outlined,
-                      color: Colors.white70,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
+                children: [
+                  const Icon(
+                    Icons.comment_outlined,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
                       '$commentsCount',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
                     ),
-                  ],
+                  ),
+                ],
                 ),
               ),
               const SizedBox(width: 24),
               GestureDetector(
                 onTap: () => _sharePost(postId),
                 child: const Icon(
-                  Icons.share_outlined,
-                  color: Colors.white70,
-                  size: 20,
+                Icons.share_outlined,
+                color: Colors.white70,
+                size: 20,
                 ),
               ),
             ],

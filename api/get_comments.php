@@ -2,6 +2,7 @@
 ob_start();
 header('Content-Type: application/json');
 require_once './config_db.php';
+require_once './encryption_helper.php';
 ob_end_clean();
 ob_start();
 
@@ -55,13 +56,16 @@ try {
     
     $comments = [];
     while ($row = $result->fetch_assoc()) {
+        // Decrypt the content before sending to client
+        $decryptedContent = decrypt_data($row['content']);
+        
         $comments[] = [
             'id' => (int)$row['id'],
             'post_id' => (int)$row['post_id'],
             'user_id' => (int)$row['user_id'],
             'user_name' => $row['full_name'],
             'user_email' => $row['email'],
-            'content' => $row['content'],
+            'content' => $decryptedContent,
             'created_at' => $row['created_at'],
             'updated_at' => $row['updated_at'],
         ];

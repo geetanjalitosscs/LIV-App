@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once './config_db.php';
+require_once './encryption_helper.php';
 
 // Read JSON or form POST
 $input = $_POST;
@@ -21,6 +22,11 @@ $stmt->execute();
 $res = $stmt->get_result();
 
 if ($user = $res->fetch_assoc()) {
+    // Decrypt bio before sending to client
+    if (isset($user['bio']) && !empty($user['bio'])) {
+        $user['bio'] = decrypt_data($user['bio']);
+    }
+    
     echo json_encode(["success" => true, "user" => $user]);
 } else {
     echo json_encode(["success" => false, "error" => "User not found"]);

@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../services/theme_service.dart';
 import '../services/avtar_service.dart';
+import '../services/activity_service.dart';
 import '../theme/liv_theme.dart';
 import '../config/paths.dart';
 import '../widgets/bottom_navigation.dart';
@@ -17,6 +18,7 @@ import 'edit_profile_screen.dart';
 import 'feedback_screen.dart';
 import 'welcome_back_screen.dart';
 import 'profile_screen.dart';
+import 'chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,6 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // Friends (accepted)
   List<Map<String, dynamic>> _friends = [];
   bool _isLoadingFriends = false;
+  // Conversations
+  List<Map<String, dynamic>> _conversations = [];
+  bool _isLoadingConversations = false;
   
   @override
   void initState() {
@@ -343,6 +348,13 @@ class _HomeScreenState extends State<HomeScreen> {
               _loadFriends();
             }
           }
+          // Load conversations when switching to Messages tab (index 2)
+          if (index == 2) {
+            final authService = AuthService.instance;
+            if (authService.userId != null) {
+              _loadConversations();
+            }
+          }
           // Refresh users list when switching to Discover tab (index 3)
           if (index == 3) {
             // Only reload if not already loading to prevent duplicate calls
@@ -454,8 +466,8 @@ class _HomeScreenState extends State<HomeScreen> {
             
             const SizedBox(height: 24),
             
-            // Quick Action Button
-            _buildQuickActionButton(),
+            // Quick Action Button - Hidden
+            // _buildQuickActionButton(),
             
             const SizedBox(height: 20),
           ],
@@ -963,14 +975,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final screenSize = MediaQuery.of(context).size;
     final isSmallScreen = screenSize.width < 600;
     
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 16.0 : 24.0,
-          vertical: 16.0,
-        ),
-        child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isSmallScreen ? 16.0 : 24.0,
+                vertical: 16.0,
+              ),
+              child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
@@ -988,14 +1006,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   cursor: SystemMouseCursors.click,
                   child: GestureDetector(
                     onTap: () {
-                      // Refresh messages (placeholder for future implementation)
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Messages refreshed'),
-                          duration: Duration(seconds: 1),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                      // Refresh conversations
+                      _loadConversations();
                     },
                     child: Container(
                       width: isSmallScreen ? 36 : 40,
@@ -1008,25 +1020,76 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 1,
                         ),
                       ),
-                      child: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                      child: _isLoadingConversations
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Icon(Icons.refresh, color: Colors.white, size: 20),
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 20),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: 8,
-              itemBuilder: (context, index) {
-                return _buildMessageCard(index);
-              },
-            ),
+            _isLoadingConversations
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  )
+                : _conversations.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 64,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No conversations yet',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Start chatting with your friends',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.5),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _conversations.length,
+                        itemBuilder: (context, index) {
+                          final conversation = _conversations[index];
+                          return _buildConversationCard(conversation, index);
+                        },
+                      ),
             const SizedBox(height: 20),
-          ],
+              ],
+            ),
+          ),
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -1522,98 +1585,172 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildMessageCard(int index) {
-    final avatars = [
-      'assets/avatars/Gemini_Generated_Image_1x9rce1x9rce1x9r.png',
-      'assets/avatars/Gemini_Generated_Image_4echfc4echfc4ech.png',
-      'assets/avatars/Gemini_Generated_Image_8h3zz58h3zz58h3z.png',
-      'assets/avatars/Gemini_Generated_Image_9btvl39btvl39btv.png',
-      'assets/avatars/Gemini_Generated_Image_9tb20o9tb20o9tb2.png',
-    ];
+  Widget _buildConversationCard(Map<String, dynamic> conversation, int index) {
+    final otherUserId = conversation['other_user_id'] != null
+        ? int.tryParse(conversation['other_user_id'].toString()) ?? 0
+        : 0;
+    final otherUserName = conversation['other_user_name'] ?? 'User';
+    final lastMessage = conversation['last_message'] ?? '';
+    final lastMessageTime = conversation['last_message_time'];
+    final unreadCount = conversation['unread_count'] != null
+        ? int.tryParse(conversation['unread_count'].toString()) ?? 0
+        : 0;
     
-    final names = ['Sarah', 'Emma', 'Jessica', 'Amanda', 'Lisa', 'Rachel', 'Megan', 'Ashley'];
-    final messages = ['Hey! How are you?', 'Thanks for the message!', 'Let\'s meet up soon', 'I had a great time', 'What are you up to?', 'Good morning!', 'See you later', 'Have a great day!'];
+    String formatTime(String? createdAt) {
+      if (createdAt == null) return '';
+      try {
+        final created = DateTime.parse(createdAt);
+        final now = DateTime.now();
+        final difference = now.difference(created);
+        
+        if (difference.inDays > 0) {
+          return '${difference.inDays}d ago';
+        } else if (difference.inHours > 0) {
+          return '${difference.inHours}h ago';
+        } else if (difference.inMinutes > 0) {
+          return '${difference.inMinutes}m ago';
+        } else {
+          return 'Just now';
+        }
+      } catch (e) {
+        return '';
+      }
+    }
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: LivTheme.glassmorphicBackground,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: LivTheme.glassmorphicBorder,
-          width: 1.5,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                otherUserId: otherUserId,
+                otherUserName: otherUserName,
+                otherUserEmail: conversation['other_user_email'],
+              ),
+            ),
+          ).then((_) {
+            // Reload conversations when returning from chat
+            _loadConversations();
+          });
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: LivTheme.glassmorphicBackground,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: LivTheme.glassmorphicBorder,
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              FutureBuilder<String?>(
+                key: ValueKey('conv_avatar_$otherUserId'),
+                future: otherUserId != 0 ? _getUserAvatarFuture(otherUserId) : Future.value(null),
+                builder: (context, snapshot) {
+                  final avatarPath = snapshot.data;
+                  if (avatarPath != null && File(avatarPath).existsSync()) {
+                    return CircleAvatar(
+                      radius: 25,
+                      backgroundImage: FileImage(File(avatarPath)),
+                      onBackgroundImageError: (exception, stackTrace) {},
+                    );
+                  }
+                  return CircleAvatar(
+                    radius: 25,
+                    backgroundColor: Colors.grey[300],
+                    child: Icon(
+                      Icons.person,
+                      size: 25,
+                      color: Colors.grey[600],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            otherUserName,
+                            style: LivTheme.getBlackTitle(context).copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          formatTime(lastMessageTime),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lastMessage,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (unreadCount > 0)
+                Container(
+                  margin: const EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: LivTheme.primaryPink.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: AssetImage(avatars[index % avatars.length]),
-            onBackgroundImageError: (exception, stackTrace) {
-              // Handle error if needed
-            },
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  names[index % names.length],
-                  style: LivTheme.getBlackTitle(context).copyWith(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  messages[index % messages.length],
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.white,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [LivTheme.primaryPink.withOpacity(0.8), LivTheme.primaryPink],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: LivTheme.primaryPink.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Text(
-              '2m',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1861,6 +1998,63 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Load conversations
+  Future<void> _loadConversations() async {
+    if (_isLoadingConversations) return;
+    
+    final authService = AuthService.instance;
+    final currentUserId = authService.userId;
+    if (currentUserId == null) return;
+    
+    setState(() {
+      _isLoadingConversations = true;
+    });
+    
+    try {
+      final response = await http.post(
+        Uri.parse('${AppPaths.apiBaseUrl}/get_conversations.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'user_id': currentUserId,
+        }),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          final conversations = List<Map<String, dynamic>>.from(data['conversations'] ?? []);
+          
+          // Pre-load avatars for all conversations
+          for (var conv in conversations) {
+            final otherUserId = conv['other_user_id'] != null
+                ? int.tryParse(conv['other_user_id'].toString())
+                : null;
+            if (otherUserId != null && !_avatarFutures.containsKey(otherUserId)) {
+              _avatarFutures[otherUserId] = _loadUserAvatar(otherUserId);
+            }
+          }
+          
+          setState(() {
+            _conversations = conversations;
+            _isLoadingConversations = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingConversations = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingConversations = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingConversations = false;
+      });
+    }
+  }
+
   /// Load friends (accepted friend requests)
   Future<void> _loadFriends() async {
     final authService = AuthService.instance;
@@ -1973,38 +2167,68 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           // Avatar
-          FutureBuilder<String?>(
-            key: ValueKey('friend_avatar_$friendId'),
-            future: _getUserAvatarFuture(friendId),
-            builder: (context, snapshot) {
-              final avatarPath = snapshot.data;
-              if (avatarPath != null && File(avatarPath).existsSync()) {
-                return Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: LivTheme.primaryPink, width: 2),
-                  ),
-                  child: CircleAvatar(
-                    radius: isSmallScreen ? 28 : 30,
-                    backgroundImage: FileImage(File(avatarPath)),
-                    onBackgroundImageError: (exception, stackTrace) {},
-                  ),
-                );
-              }
-              return Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: LivTheme.primaryPink, width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: isSmallScreen ? 28 : 30,
-                  backgroundColor: Colors.grey[300],
-                  child: Icon(
-                    Icons.person,
-                    size: isSmallScreen ? 28 : 30,
-                    color: Colors.grey[600],
-                  ),
-                ),
+          Consumer<ActivityService>(
+            builder: (context, activityService, _) {
+              final isOnline = activityService.isUserOnline(friendId);
+              
+              return FutureBuilder<String?>(
+                key: ValueKey('friend_avatar_$friendId'),
+                future: _getUserAvatarFuture(friendId),
+                builder: (context, snapshot) {
+                  final avatarPath = snapshot.data;
+                  
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (avatarPath != null && File(avatarPath).existsSync())
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: LivTheme.primaryPink, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: isSmallScreen ? 28 : 30,
+                            backgroundImage: FileImage(File(avatarPath)),
+                            onBackgroundImageError: (exception, stackTrace) {},
+                          ),
+                        )
+                      else
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: LivTheme.primaryPink, width: 2),
+                          ),
+                          child: CircleAvatar(
+                            radius: isSmallScreen ? 28 : 30,
+                            backgroundColor: Colors.grey[300],
+                            child: Icon(
+                              Icons.person,
+                              size: isSmallScreen ? 28 : 30,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      // Online indicator
+                      if (isOnline)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: isSmallScreen ? 14 : 16,
+                            height: isSmallScreen ? 14 : 16,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -2091,7 +2315,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
                           ),
                           onPressed: () {
-                            _showMessageDialog(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ChatScreen(
+                                  otherUserId: friendId,
+                                  otherUserName: fullName,
+                                ),
+                              ),
+                            ).then((_) {
+                              // Reload conversations when returning from chat
+                              if (_currentIndex == 2) {
+                                _loadConversations();
+                              }
+                            });
                           },
                           icon: const Icon(Icons.chat, color: Colors.white, size: 14),
                           label: const Text(
@@ -2218,30 +2455,59 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           // Avatar - Load asynchronously using FutureBuilder (with cached future)
-          FutureBuilder<String?>(
-            key: ValueKey('avatar_$userIdInt'),
-            future: userIdInt != null ? _getUserAvatarFuture(userIdInt) : Future.value(null),
-            builder: (context, snapshot) {
-              final avatarPath = snapshot.data;
-              if (avatarPath != null && File(avatarPath).existsSync()) {
-                return CircleAvatar(
-                  radius: isSmallScreen ? 30 : 35,
-                  backgroundImage: FileImage(File(avatarPath)),
-                  onBackgroundImageError: (exception, stackTrace) {
-                    // Silently handle error - will show placeholder on next rebuild
-                  },
-                  child: null,
-                );
-              }
-              // Placeholder
-              return CircleAvatar(
-                radius: isSmallScreen ? 30 : 35,
-                backgroundColor: Colors.grey[300],
-                child: Icon(
-                  Icons.person,
-                  size: isSmallScreen ? 30 : 35,
-                  color: Colors.grey[600],
-                ),
+          Consumer<ActivityService>(
+            builder: (context, activityService, _) {
+              final isOnline = userIdInt != null ? activityService.isUserOnline(userIdInt) : false;
+              
+              return FutureBuilder<String?>(
+                key: ValueKey('avatar_$userIdInt'),
+                future: userIdInt != null ? _getUserAvatarFuture(userIdInt) : Future.value(null),
+                builder: (context, snapshot) {
+                  final avatarPath = snapshot.data;
+                  
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (avatarPath != null && File(avatarPath).existsSync())
+                        CircleAvatar(
+                          radius: isSmallScreen ? 30 : 35,
+                          backgroundImage: FileImage(File(avatarPath)),
+                          onBackgroundImageError: (exception, stackTrace) {
+                            // Silently handle error - will show placeholder on next rebuild
+                          },
+                          child: null,
+                        )
+                      else
+                        CircleAvatar(
+                          radius: isSmallScreen ? 30 : 35,
+                          backgroundColor: Colors.grey[300],
+                          child: Icon(
+                            Icons.person,
+                            size: isSmallScreen ? 30 : 35,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      // Online indicator
+                      if (isOnline)
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: isSmallScreen ? 14 : 16,
+                            height: isSmallScreen ? 14 : 16,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               );
             },
           ),

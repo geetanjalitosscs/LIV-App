@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once './config_db.php';
+require_once './encryption_helper.php';
 
 // Read JSON or form POST
 $input = $_POST;
@@ -29,13 +30,15 @@ foreach ($allowedFields as $field) {
     if (isset($input[$field])) {
         if ($field == 'age') {
             $value = (int)$input[$field];
+            $updates[] = "$field = $value";
+        } elseif ($field == 'bio') {
+            // Encrypt bio before storing
+            $bioText = trim($input[$field]);
+            $encryptedBio = encrypt_data($bioText);
+            $encryptedBioEscaped = $conn->real_escape_string($encryptedBio);
+            $updates[] = "$field = '$encryptedBioEscaped'";
         } else {
             $value = $conn->real_escape_string(trim($input[$field]));
-        }
-        // Use proper quoting for text fields
-        if ($field == 'bio') {
-            $updates[] = "$field = '" . $conn->real_escape_string($value) . "'";
-        } else {
             $updates[] = "$field = '$value'";
         }
     }
@@ -51,6 +54,12 @@ if ($conn->query($sql)) {
     // Fetch updated user data
     $getUser = $conn->query("SELECT id, full_name, email, phone, gender, age, location, bio, created_at FROM users WHERE id=$userId LIMIT 1");
     $user = $getUser->fetch_assoc();
+    
+    // Decrypt bio before sending to client
+    if (isset($user['bio']) && !empty($user['bio'])) {
+        $user['bio'] = decrypt_data($user['bio']);
+    }
+    
     echo json_encode(["success" => true, "user" => $user]);
 } else {
     echo json_encode(["success" => false, "error" => "Update failed: " . $conn->error]);

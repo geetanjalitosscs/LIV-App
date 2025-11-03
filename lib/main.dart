@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'services/user_service.dart';
 import 'services/theme_service.dart';
+import 'services/activity_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/welcome_back_screen.dart';
@@ -27,6 +28,7 @@ class LIVApp extends StatelessWidget {
                     ChangeNotifierProvider(create: (_) => AuthService.instance),
                     ChangeNotifierProvider(create: (_) => UserService.instance),
                     ChangeNotifierProvider(create: (_) => ThemeService.instance),
+                    ChangeNotifierProvider(create: (_) => ActivityService.instance),
                   ],
                   child: Consumer<ThemeService>(
                     builder: (context, themeService, child) {
